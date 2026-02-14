@@ -1,0 +1,89 @@
+{
+  "1xx": {
+    "description": "Информационные коды",
+    "codes": [
+      {"code": 100, "message": "Continue", "ru": "Продолжайте"},
+      {"code": 101, "message": "Switching Protocols", "ru": "Переход на новые протоколы"},
+      {"code": 102, "message": "Processing", "ru": "Обрабатывается"},
+      {"code": 103, "message": "Early Hints", "ru": "Ранние подсказки"},
+      {"code": 104, "message": "Upload Resumption Supported (TEMPORARY - registered 2024-11-13, extension registered 2025-09-15, expires 2026-11-13)", "ru": "Возобновление загрузки поддерживается (ВРЕМЕННЫЙ — зарегистрирован 13 ноября 2024, расширение зарегистрировано 15 сентября 2025, истекает 13 ноября 2026)"}
+    ]
+  },
+  "2xx": {
+    "description": "Успешные коды",
+    "codes": [
+      {"code": 200, "message": "OK", "ru": "ОК"},
+      {"code": 201, "message": "Created", "ru": "Создано"},
+      {"code": 202, "message": "Accepted", "ru": "Принято"},
+      {"code": 204, "message": "No Content", "ru": "Нет содержимого"},
+      {"code": 205, "message": "Reset Content", "ru": "Сбросить контент"},
+      {"code": 206, "message": "Partial Content", "ru": "Частичное содержимое"},
+      {"code": 207, "message": "Multi-Status", "ru": "Многостатусный"},
+      {"code": 208, "message": "Already Reported", "ru": "Уже сообщалось"},
+      {"code": 226, "message": "IM Used", "ru": "Используется IM"}
+    ]
+  },
+  "3xx": {
+    "description": "Коды перенаправления",
+    "codes": [
+      {"code": 301, "message": "Moved Permanently", "ru": "Перемещено навсегда"},
+      {"code": 302, "message": "Found", "ru": "Найдено"},
+      {"code": 303, "message": "See Other", "ru": "См. другое"},
+      {"code": 304, "message": "Not Modified", "ru": "Не изменилось"},
+      {"code": 305, "message": "Use Proxy", "ru": "Использовать прокси-сервер"},
+      {"code": 306, "message": "(Unused)", "ru": "(Не используется)"},
+      {"code": 307, "message": "Temporary Redirect", "ru": "Временное перенаправление"},
+      {"code": 308, "message": "Permanent Redirect", "ru": "Постоянное перенаправление"}
+    ]
+  },
+  "4xx": {
+    "description": "Клиентские ошибки",
+    "codes": [
+      {"code": 400, "message": "Bad Request", "ru": "Неверный запрос"},
+      {"code": 401, "message": "Unauthorized", "ru": "Неавторизован"},
+      {"code": 402, "message": "Payment Required", "ru": "Требуется оплата"},
+      {"code": 403, "message": "Forbidden", "ru": "Запрещён доступ"},
+      {"code": 404, "message": "Not Found", "ru": "Не найдено"},
+      {"code": 405, "message": "Method Not Allowed", "ru": "Метод не разрешён"},
+      {"code": 406, "message": "Not Acceptable", "ru": "Недопустимо"},
+      {"code": 407, "message": "Proxy Authentication Required", "ru": "Необходима аутентификация прокси"},
+      {"code": 408, "message": "Request Timeout", "ru": "Истёк срок ожидания запроса"},
+      {"code": 409, "message": "Conflict", "ru": "Конфликт"},
+      {"code": 410, "message": "Gone", "ru": "Удалён"},
+      {"code": 411, "message": "Length Required", "ru": "Требуется длина"},
+      {"code": 412, "message": "Precondition Failed", "ru": "Предварительное условие не выполнено"},
+      {"code": 413, "message": "Content Too Large", "ru": "Содержимое слишком большое"},
+      {"code": 414, "message": "URI Too Long", "ru": "URI слишком длинное"},
+      {"code": 415, "message": "Unsupported Media Type", "ru": "Тип медиа не поддерживается"},
+      {"code": 416, "message": "Range Not Satisfiable", "ru": "Диапазон не удовлетворяется"},
+      {"code": 417, "message": "Expectation Failed", "ru": "Ошибка ожиданий"},
+      {"code": 418, "message": "(Unused) I'm a teapot", "ru": "(Не используется) Я чайник"},
+      {"code": 421, "message": "Misdirected Request", "ru": "Некорректный запрос"},
+      {"code": 422, "message": "Unprocessable Content", "ru": "Непроцессируемое содержимое"},
+      {"code": 423, "message": "Locked", "ru": "Заблокировано"},
+      {"code": 424, "message": "Failed Dependency", "ru": "Неудачная зависимость"},
+      {"code": 425, "message": "Too Early", "ru": "Слишком рано"},
+      {"code": 426, "message": "Upgrade Required", "ru": "Необходимо обновление"},
+      {"code": 428, "message": "Precondition Required", "ru": "Необходимо предварительное условие"},
+      {"code": 429, "message": "Too Many Requests", "ru": "Слишком много запросов"},
+      {"code": 431, "message": "Request Header Fields Too Large", "ru": "Заголовочные поля запроса слишком большие"},
+      {"code": 451, "message": "Unavailable For Legal Reasons", "ru": "Недоступно по юридическим причинам"}
+    ]
+  },
+  "5xx": {
+    "description": "Серверные ошибки",
+    "codes": [
+      {"code": 500, "message": "Internal Server Error", "ru": "Внутренняя ошибка сервера"},
+      {"code": 501, "message": "Not Implemented", "ru": "Не реализовано"},
+      {"code": 502, "message": "Bad Gateway", "ru": "Плохой шлюз"},
+      {"code": 503, "message": "Service Unavailable", "ru": "Сервис недоступен"},
+      {"code": 504, "message": "Gateway Timeout", "ru": "Таймаут шлюза"},
+      {"code": 505, "message": "HTTP Version Not Supported", "ru": "Версия HTTP не поддерживается"},
+      {"code": 506, "message": "Variant Also Negotiates", "ru": "Вариант также участвует в переговорах"},
+      {"code": 507, "message": "Insufficient Storage", "ru": "Недостаточное хранилище"},
+      {"code": 508, "message": "Loop Detected", "ru": "Обнаружен цикл"},
+      {"code": 510, "message": "Not Extended (OBSOLETED)", "ru": "Не расширенный (УСТАРЕЛ)"},
+      {"code": 511, "message": "Network Authentication Required", "ru": "Требуется сетевая аутентификация"}
+    ]
+  }
+}
