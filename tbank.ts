@@ -4,10 +4,10 @@ import { TOKEN } from "./common/common";
 //import { FindInstrumentRequest, InstrumentIdType, InstrumentRequest, InstrumentShort, InstrumentsRequest } from "tinkoff-invest-api/cjs/generated/instruments";
 //import { AccessLevel, AccountStatus, GetAccountsRequest } from 'tinkoff-invest-api/cjs/generated/users';
 
-import { createSdk } from './t-invest-sdk/sdk';
-import { PortfolioRequest_CurrencyRequest } from './t-invest-sdk/generated/operations';
-import { AccessLevel, AccountStatus, GetAccountsRequest } from './t-invest-sdk/generated/users';
-import { FindInstrumentRequest, GetBondEventsRequest_EventType, InstrumentIdType, InstrumentShort } from './t-invest-sdk/generated/instruments';
+import { createSdk } from './api/t-invest-sdk/sdk';
+import { PortfolioRequest_CurrencyRequest } from './api/t-invest-sdk/generated/operations';
+import { AccessLevel, AccountStatus, GetAccountsRequest } from './api/t-invest-sdk/generated/users';
+import { FindInstrumentRequest, GetBondEventsRequest_EventType, InstrumentIdType, InstrumentShort } from './api/t-invest-sdk/generated/instruments';
 
 //const api = new TinkoffInvestApi({ token: TOKEN });
 
@@ -216,7 +216,7 @@ export async function getPortfolio() {
   const _user_tariff = await users.getUserTariff({});
   const _info = await users.getInfo({});
 
-  instruments.getInstrumentBy({idType: InstrumentIdType.INSTRUMENT_ID_TYPE_FIGI, id: 'BBG004730N88'}).then((res) => {
+  instruments.getInstrumentBy({idType: InstrumentIdType.INSTRUMENT_ID_TYPE_FIGI, id: 'BBG004730N88'}).then((res: any) => {
     //console.log('res: ', res);
   });
   
@@ -224,7 +224,7 @@ export async function getPortfolio() {
   
  
   //console.log('Счета: ', _accounts);
-  _accounts.accounts.forEach(async (account) => {
+  _accounts.accounts.forEach(async (account: any) => {
     logOn && console.log('%cСчет: %o', 'color: firebrick; background-color: white', account);
     //console.log('Идентификатор счета: ', account.id);
     
@@ -243,7 +243,7 @@ export async function getPortfolio() {
 
   logOn && console.log('Счета: ', accounts);
 
-  accounts.forEach(async (account) => {
+  accounts.forEach(async (account: { id: any; }) => {
     logOn && console.log('Счет: ', account);
 
     // получить портфель по id счета
