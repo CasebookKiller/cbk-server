@@ -9,6 +9,8 @@ import SBase, { getRow, insertTUser, requestTUser, requestTUserByTGId, TGID, TUs
 import * as omar from "./data/omar.json";
 import { formDataToJson, getUserProfilePhotos } from './api/bot/methods';
 
+
+
 //import { TinkoffInvestApi } from 'tinkoff-invest-api';
 //import { PortfolioRequest_CurrencyRequest, PortfolioResponse } from 'tinkoff-invest-api/cjs/generated/operations';
 //import { Account } from 'tinkoff-invest-api/cjs/generated/users';
@@ -391,7 +393,7 @@ app.get('/about', (req: Request, res: Response) => {
 });
 
 app.get('/info', (req: Request, res: Response) => {
-  res.send('tmajs-profile-client-server');
+  res.send('cbk-server');
 });
 
 app.get('/private', (req: Request, res: Response) => {
