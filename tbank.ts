@@ -128,7 +128,7 @@ export async function sdkGetBonds(ttoken: string) {
     if (ttoken === '') return;
     const api = createSdk(ttoken);
     const instruments = api.instruments;
-    const bonds = await instruments.bonds({});
+    const bonds = await instruments.bonds({instrumentStatus: 2, instrumentExchange: 0});
     const res = bonds.instruments;
     return res;
   } catch (error) {

@@ -501,6 +501,7 @@ app.post('/getinfo', async (req: Request, res: Response) => {
 });
 
 app.post('/getbonds', async (req: Request, res: Response) => {
+  console.log('---Request: ', req);
   try {
     proceedWithToken(req, res, async (req: Request, res: Response, user: TUser | null) => {
       const { ttoken } = req.body;
