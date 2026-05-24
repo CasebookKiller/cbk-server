@@ -6,9 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "npx tsc",
-    "start": "node dist/index.js",
+    "start": "node --openssl-legacy-provider dist/index.js",
     "web": "cd ../wetothemoon-web && vite",
-    "server": "npx tsc && nodemon -q dist/index.js",
+    "server": "npx tsc && NODE_OPTIONS=--openssl-legacy-provider nodemon -q dist/index.js",
     "dev": "concurrently \"npm run server\" \"npm run web\""
   },
   "keywords": [],
@@ -17,7 +17,7 @@
   "type": "commonjs",
   "dependencies": {
     "@grpc/grpc-js": "^1.14.3",
-    "@supabase/supabase-js": "^2.95.3",
+    "@supabase/supabase-js": "^2.106.1",
     "@typescript-eslint/eslint-plugin": "^8.55.0",
     "@typescript-eslint/parser": "^8.55.0",
     "cors": "^2.8.6",
@@ -39,12 +39,12 @@
     "@types/express": "^5.0.6",
     "@types/google-protobuf": "^3.15.12",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^25.2.3",
+    "@types/node": "^25.9.1",
     "concurrently": "^9.2.1",
     "dotenv": "^17.3.1",
     "node-fetch": "^3.3.2",
     "nodemon": "^3.1.11",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   }
 }

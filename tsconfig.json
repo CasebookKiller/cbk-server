@@ -112,25 +112,24 @@
 //  }
 //}
 {
-  "compilerOptions": {
-    "baseUrl": ".",
-    "target": "es2018", // +
+"compilerOptions": {
+    "target": "es2018",
     "jsx": "preserve",
-    "module": "commonjs", // +
-    "declaration": true, // added
-    "removeComments": true, // added
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "ignoreDeprecations": "6.0",
+    "declaration": true,
+    "removeComments": true,
     "allowJs": true,
-    "outDir": "./dist", // +
-    "esModuleInterop": true, // +
+    "outDir": "./dist",
+    "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "strict": true, // +
+    "strict": true,
     "skipLibCheck": true,
     "paths": {
-      "@root/*": ["../src/*"], // путь к корневому проекту
-      "@/*": [
-        "./src/*"
-      ]
+      "@root/*": ["../src/*"],
+      "@/*": ["./src/*"]
     }
   },
   "exclude": [

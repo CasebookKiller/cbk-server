@@ -1,4 +1,4 @@
-import { createClient, PostgrestSingleResponse } from '@supabase/supabase-js';
+import { createClient, PostgrestSingleResponse } from "@supabase/supabase-js";
 import { Database } from './supabase';
 
 const supabaseUrl: any = process.env.SUPABASE_URL;
@@ -28,7 +28,7 @@ export interface TUser {
   password: string;
   username: string;
   tgid: string | null; // id telegram
-  human?: () => void;
+  //human?: () => void;
 }
 
 /**
