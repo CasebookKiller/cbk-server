@@ -6,9 +6,11 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "npx tsc",
-    "start": "node --openssl-legacy-provider dist/index.js",
+    "start-old": "node --openssl-legacy-provider dist/index.js",
+    "start": "npx tsc && cp -r proto dist/proto && node --openssl-legacy-provider dist/index.js",
     "web": "cd ../wetothemoon-web && vite",
-    "server": "npx tsc && NODE_OPTIONS=--openssl-legacy-provider nodemon -q dist/index.js",
+    "server-old": "npx tsc && NODE_OPTIONS=--openssl-legacy-provider nodemon -q dist/index.js",
+    "server": "npx tsc && cp -r proto dist/proto && NODE_OPTIONS=--openssl-legacy-provider nodemon -q dist/index.js",
     "dev": "concurrently \"npm run server\" \"npm run web\""
   },
   "keywords": [],
