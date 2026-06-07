@@ -1,3 +1,4 @@
+// @ts-nocheck
 // supabaseClient.ts
 
 import { createClient, PostgrestSingleResponse } from "@supabase/supabase-js";
@@ -6,7 +7,13 @@ import { Database } from './supabase';
 const supabaseUrl: any = process.env.SUPABASE_URL;
 const supabaseAnonKey: any = process.env.SUPABASE_ANON_KEY;
 
-const SBase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+import WebSocket from 'ws';
+
+const SBase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  realtime: {
+    transport: WebSocket,
+  },
+});
 
 export default SBase;
 

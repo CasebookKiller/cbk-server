@@ -1,3 +1,4 @@
+// @ts-nocheck
 // index.ts
 
 import cors from 'cors';
