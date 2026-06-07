@@ -1,3 +1,5 @@
+// index.ts
+
 import cors from 'cors';
 
 import express, { Express, Request, Response } from 'express';
@@ -9,7 +11,8 @@ import SBase, { getRow, insertTUser, requestTUser, requestTUserByTGId, TGID, TUs
 import * as omar from "./data/omar.json";
 import { formDataToJson, getUserProfilePhotos } from './api/bot/methods';
 
-
+import { HistoricalDataLoader } from './src/backtest/historicalDataLoader';
+import { BacktestQueue } from './src/backtest/backtestQueue';
 
 //import { TinkoffInvestApi } from 'tinkoff-invest-api';
 //import { PortfolioRequest_CurrencyRequest, PortfolioResponse } from 'tinkoff-invest-api/cjs/generated/operations';
@@ -104,9 +107,6 @@ app.get('/', (req: Request, res: Response) => {
   res.send('Запущен сервер на Typescript...')
 });
 
-app.listen(PORT, () => {
-  console.log(`Сервер прослушивает порт ${PORT}`)
-});
 
 app.post('/login', async (req: Request, res: Response) => {
   const { email, password, tgid }:Credentials = req.body;
@@ -517,7 +517,6 @@ app.post('/getbonds', async (req: Request, res: Response) => {
   }
 });
 
-
 app.post('/getbond', async (req: Request, res: Response) => {
   try {
     proceedWithToken(req, res, async (req: Request, res: Response, user: TUser | null) => {
@@ -573,4 +572,45 @@ app.post('/getbondevents', async (req: Request, res: Response) => {
   } catch (error) {
     res.status(500).json({message: 'Внутренняя ошибка сервера!'});
   }
+});
+
+const loader = new HistoricalDataLoader();
+const backtestQueue = new BacktestQueue(loader);
+
+app.post('/api/backtest/tasks', verifyToken, async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const { instrumentUid, dateFrom, dateTo, interval, params } = req.body;
+  const token = req.headers.authorization?.split(' ')[1] || '';
+  const taskId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  backtestQueue.addTask({
+    taskId,
+    instrumentUid,
+    dateFrom,
+    dateTo,
+    interval,
+    token,
+    params,
+    status: 'pending'
+  });
+
+  res.status(202).json({ taskId, status: 'pending' });
+});
+
+app.get('/api/backtest/tasks/:taskId', verifyToken, (req: Request, res: Response) => {
+  const taskId = req.params.taskId as string;
+  const task = backtestQueue.getTask(taskId);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+  res.json({ taskId: task.taskId, status: task.status });
+});
+
+app.get('/api/backtest/results/:taskId', verifyToken, (req: Request, res: Response) => {
+  const taskId = req.params.taskId as string;
+  const task = backtestQueue.getTask(taskId);
+  if (!task || task.status !== 'completed') return res.status(404).json({ error: 'Result not available' });
+  res.json(task.result);
+});
+
+app.listen(PORT, () => {
+  console.log(`Сервер прослушивает порт ${PORT}`)
 });

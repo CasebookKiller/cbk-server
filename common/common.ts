@@ -1,3 +1,5 @@
+// common/common.ts
+
 import dotenv from 'dotenv'
 import path from 'path';
 import jwt from 'jsonwebtoken';

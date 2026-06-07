@@ -1,3 +1,5 @@
+// supabaseClient.ts
+
 import { createClient, PostgrestSingleResponse } from "@supabase/supabase-js";
 import { Database } from './supabase';
 
