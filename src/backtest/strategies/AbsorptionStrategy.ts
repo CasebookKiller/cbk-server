@@ -1,10 +1,10 @@
 // src/main/services/backtest/strategies/AbsorptionStrategy.ts
-import type { StreamCandle } from '../../../generated/marketdataStreamTypes';
-import type { VolumeProfileLevels } from '../../../../volumeProfileEngine';
+import type { StreamCandle } from '../types';
+import type { VolumeProfileLevels } from '../volumeProfileEngine';
 import type { IBacktestStrategy } from '../backtestEngine';
 import { BacktestSignal } from '../common';
 import { quotationToNumber } from '../common';
-import { OrderFlowEngine } from '../../../orderFlowEngine';
+import { OrderFlowEngine } from './orderFlowStub';
 
 export class AbsorptionStrategy implements IBacktestStrategy {
   private signals: BacktestSignal[] = [];

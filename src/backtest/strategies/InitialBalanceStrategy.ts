@@ -1,6 +1,6 @@
 // src/main/services/backtest/strategies/InitialBalanceStrategy.ts
-import type { StreamCandle } from '../../../generated/marketdataStreamTypes';
-import type { VolumeProfileLevels } from '../../../../volumeProfileEngine';
+import type { StreamCandle } from '../types';
+import type { VolumeProfileLevels } from '../volumeProfileEngine';
 import type { IBacktestStrategy } from '../backtestEngine';
 import { BacktestSignal } from '../common';
 import { quotationToNumber } from '../common';

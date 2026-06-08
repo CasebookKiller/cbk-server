@@ -1,5 +1,5 @@
-import type { StreamCandle } from '../../../generated/marketdataStreamTypes';
-import type { VolumeProfileLevels } from '../../../../volumeProfileEngine';
+import type { StreamCandle } from '../types';
+import type { VolumeProfileLevels } from '../volumeProfileEngine';
 import type { IBacktestStrategy } from '../backtestEngine';
 import { BacktestSignal, quotationToNumber } from '../common';
 
@@ -42,7 +42,7 @@ export class RejectionStrategy implements IBacktestStrategy {
 
     // Проверяем, находится ли цена вблизи уровня HVN
     const hvnLevels = this.dailyProfile.hvn || [];
-    const nearHVN = hvnLevels.some(level => Math.abs(close - level) < 1.0); // допуск 1 рубль
+    const nearHVN = hvnLevels.some((level: number) => Math.abs(close - level) < 1.0); // допуск 1 рубль
     if (!nearHVN) return;
 
     if (isRejectionDown) {

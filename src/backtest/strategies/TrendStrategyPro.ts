@@ -1,5 +1,5 @@
-import type { StreamCandle } from '../../../generated/marketdataStreamTypes';
-import type { VolumeProfileLevels } from '../../../../volumeProfileEngine';
+import type { StreamCandle } from '../types';
+import type { VolumeProfileLevels } from '../volumeProfileEngine';
 import type { IBacktestStrategy } from '../backtestEngine';
 import { BacktestSignal, quotationToNumber } from '../common';
 
@@ -56,7 +56,7 @@ export class TrendStrategyPro implements IBacktestStrategy {
 
     // Проверка тренда и пересечения FVG с HVN
     for (const fvg of this.fvgList) {
-      const overlap = hvnLevels.some(level => level >= fvg.bottom && level <= fvg.top);
+      const overlap = hvnLevels.some((level: number) => level >= fvg.bottom && level <= fvg.top);
       if (!overlap) continue;
 
       // Бычий тренд (цена выше VA High) + бычий FVG

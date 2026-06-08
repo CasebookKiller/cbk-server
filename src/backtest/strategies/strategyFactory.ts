@@ -1,5 +1,5 @@
 // src/main/services/backtest/strategies/strategyFactory.ts
-import type { VolumeProfileLevels } from '../../../../volumeProfileEngine';
+import type { VolumeProfileLevels } from '../volumeProfileEngine';
 import type { IBacktestStrategy } from '../backtestEngine';
 import { VolumeAccumulationStrategy } from './VolumeAccumulationStrategy';
 import { TrendStrategy } from './TrendStrategy';
@@ -14,7 +14,7 @@ import { SFPStrategy } from './SFPStrategy';
 import { AnchoredVWAPStrategy } from './AnchoredVWAPStrategy';
 import { AbsorptionStrategy } from './AbsorptionStrategy';
 import { ExhaustionStrategy } from './ExhaustionStrategy';
-import { OrderFlowEngine } from '../../../orderFlowEngine';
+import { OrderFlowEngine } from './orderFlowStub';
 
 type StrategyFactory = (
   instrumentUid: string,

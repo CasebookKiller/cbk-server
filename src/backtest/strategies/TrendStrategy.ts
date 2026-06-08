@@ -1,6 +1,6 @@
 // src/main/services/backtest/strategies/TrendStrategy.ts
-import type { StreamCandle } from '../../../generated/marketdataStreamTypes';
-import type { VolumeProfileLevels } from '../../../../volumeProfileEngine';
+import type { StreamCandle } from '../types';
+import type { VolumeProfileLevels } from '../volumeProfileEngine';
 import type { IBacktestStrategy } from '../backtestEngine';
 import { quotationToNumber, BacktestSignal } from '../common';
 
@@ -86,10 +86,10 @@ export class TrendStrategy implements IBacktestStrategy {
     if (this.hvnLevel === null && this.dailyProfile.hvn.length > 0) {
       const hvnList = this.dailyProfile.hvn;
       if (this.trendDirection === 'UP') {
-        const candidates = hvnList.filter(level => level < close);
+        const candidates = hvnList.filter((level: number) => level < close);
         if (candidates.length > 0) this.hvnLevel = Math.max(...candidates);
       } else {
-        const candidates = hvnList.filter(level => level > close);
+        const candidates = hvnList.filter((level: number) => level > close);
         if (candidates.length > 0) this.hvnLevel = Math.min(...candidates);
       }
     }
