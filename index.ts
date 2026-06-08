@@ -602,7 +602,11 @@ app.get('/api/backtest/tasks/:taskId', verifyToken, (req: Request, res: Response
   const taskId = req.params.taskId as string;
   const task = backtestQueue.getTask(taskId);
   if (!task) return res.status(404).json({ error: 'Task not found' });
-  res.json({ taskId: task.taskId, status: task.status });
+  res.json({
+    taskId: task.taskId,
+    status: task.status,
+    error: task.status === 'failed' ? task.error : undefined,
+  });
 });
 
 app.get('/api/backtest/results/:taskId', verifyToken, (req: Request, res: Response) => {
