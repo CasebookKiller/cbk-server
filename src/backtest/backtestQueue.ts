@@ -1,17 +1,22 @@
+// src/backtest/backtestQueue.ts
 import { HistoricalDataLoader } from './historicalDataLoader';
 import { VolumeProfileEngine } from './volumeProfileEngine';
 import { BacktestEngine } from './backtestEngine';
-import { VolumeAccumulationStrategy } from './strategies/VolumeAccumulationStrategy';
+import { createStrategy } from './strategies/strategyFactory';
 import { CandleInterval } from '../generated/marketdataTypes';
+import SBase from '../../supabaseClient';
 
 interface Task {
   taskId: string;
+  batchId?: string;
   userId?: number;
   instrumentUid: string;
   dateFrom: string;
   dateTo: string;
   interval: CandleInterval;
+  strategy: string;
   params: any;
+  marketPhase?: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
   result?: any;
   error?: string;
@@ -23,12 +28,35 @@ export class BacktestQueue {
 
   constructor(private loader: HistoricalDataLoader) {}
 
-  public addTask(task: Task): void {
+  async addTask(task: Task): Promise<void> {
     this.tasks.set(task.taskId, task);
+    // Сохраняем задачу в Supabase сразу
+    try {
+      const { error } = await SBase.from('backtest_tasks').insert({
+        id: task.taskId,
+        batch_id: task.batchId || null,
+        user_id: task.userId || null,
+        instrument_uid: task.instrumentUid,
+        date_from: task.dateFrom,
+        date_to: task.dateTo,
+        interval: task.interval,
+        strategy: task.strategy,
+        params: task.params,
+        market_phase: task.marketPhase || null,
+        status: 'pending'
+      });
+      if (error) console.warn('Supabase insert error:', error.message);
+    } catch (e) {
+      console.warn('Supabase save error:', e);
+    }
     this.process();
   }
 
-  public getAllTasks(): Task[] {
+  getTask(taskId: string): Task | undefined {
+    return this.tasks.get(taskId);
+  }
+
+  getAllTasks(): Task[] {
     return Array.from(this.tasks.values());
   }
 
@@ -45,20 +73,20 @@ export class BacktestQueue {
 
   private async runTask(task: Task): Promise<void> {
     task.status = 'running';
+    await this.updateTaskInSupabase(task);
     try {
       const from = new Date(task.dateFrom + 'T07:00:00Z');
       const to = new Date(task.dateTo + 'T16:00:00Z');
-      const token = process.env.TReadOnly || '';
       const candles = await this.loader.loadIntradayCandles(
-        task.instrumentUid, from, to, token, task.interval
+        task.instrumentUid, from, to, process.env.TReadOnly || '', task.interval
       );
 
-      const engine = new VolumeProfileEngine({ skipAutoSubscribe: true });
+      const engine = new VolumeProfileEngine({ profileResolution: 50, valueAreaPercent: 70, skipAutoSubscribe: true });
       candles.forEach(c => engine.feedCandle(c));
       const profile = engine.getProfile(task.instrumentUid);
 
-      const strategy = new VolumeAccumulationStrategy(task.instrumentUid, profile);
-      const backtestEngine = new BacktestEngine();
+      const strategy = createStrategy(task.strategy, task.instrumentUid, profile);
+      const backtestEngine = new BacktestEngine(task.params);
       const stats = backtestEngine.run(strategy, candles);
 
       task.result = stats;
@@ -66,6 +94,22 @@ export class BacktestQueue {
     } catch (err: any) {
       task.status = 'failed';
       task.error = err.message;
+    }
+    await this.updateTaskInSupabase(task);
+  }
+
+  private async updateTaskInSupabase(task: Task): Promise<void> {
+    try {
+      const { error } = await SBase.from('backtest_tasks').upsert({
+        id: task.taskId,
+        batch_id: task.batchId || null,
+        status: task.status,
+        result: task.result || null,
+        error: task.error || null,
+      });
+      if (error) console.warn('Supabase update error:', error.message);
+    } catch (e) {
+      console.warn('Supabase update error:', e);
     }
   }
 }

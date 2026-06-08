@@ -632,6 +632,83 @@ app.get('/api/backtest/results/:taskId', verifyToken, (req: Request, res: Respon
   res.json(task.result);
 });
 
+// ---- Облачный фермер ----
+
+// POST /api/backtest/batch – создаёт batch-прогон
+app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const { instruments, dateFrom, dateTo, interval, strategy, params } = req.body;
+
+  if (!instruments || !Array.isArray(instruments) || instruments.length === 0) {
+    return res.status(400).json({ error: 'instruments array is required' });
+  }
+
+  const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+
+  // Сохраняем batch в Supabase
+  await SBase.from('backtest_batches').insert({
+    id: batchId,
+    user_id: user.id,
+    params: { instruments, dateFrom, dateTo, interval, strategy, params },
+    status: 'pending'
+  });
+
+  // Создаём задачи для каждого инструмента
+  for (const uid of instruments) {
+    const taskId = `${batchId}_${uid}_${Date.now()}`;
+    backtestQueue.addTask({
+      taskId,
+      batchId,
+      userId: user.id,
+      instrumentUid: uid,
+      dateFrom,
+      dateTo,
+      interval,
+      strategy,
+      params,
+      status: 'pending'
+    });
+  }
+
+  // Обновим статус batch'а на running
+  await SBase.from('backtest_batches').update({ status: 'running' }).eq('id', batchId);
+
+  res.status(202).json({ batchId, status: 'running', tasks: instruments.length });
+});
+
+// GET /api/backtest/batch/:batchId – статус batch'а и список задач
+app.get('/api/backtest/batch/:batchId', verifyToken, async (req: Request, res: Response) => {
+  const batchId = req.params.batchId as string;
+  const { data: batch } = await SBase.from('backtest_batches').select('*').eq('id', batchId).single();
+  if (!batch) return res.status(404).json({ error: 'Batch not found' });
+
+  const { data: tasks } = await SBase.from('backtest_tasks').select('*').eq('batch_id', batchId);
+  res.json({ batch, tasks });
+});
+
+// GET /api/backtest/batch/:batchId/results – агрегированные результаты
+app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request, res: Response) => {
+  const batchId = req.params.batchId as string;
+  const { data: tasks } = await SBase.from('backtest_tasks').select('*').eq('batch_id', batchId);
+  if (!tasks) return res.status(404).json({ error: 'No tasks found' });
+
+  const summary = {
+    batchId,
+    total: tasks.length,
+    completed: tasks.filter(t => t.status === 'completed').length,
+    failed: tasks.filter(t => t.status === 'failed').length,
+    results: tasks.map(t => ({
+      taskId: t.id,
+      instrumentUid: t.instrument_uid,
+      status: t.status,
+      portfolio: t.result?.portfolio,
+      error: t.error,
+    }))
+  };
+
+  res.json(summary);
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Сервер прослушивает порт ${PORT}`);
 });
