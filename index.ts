@@ -581,12 +581,12 @@ const backtestQueue = new BacktestQueue(loader);
 app.post('/api/backtest/tasks', verifyToken, async (req: Request, res: Response) => {
   const user = (req as any).user;
   const { instrumentUid, dateFrom, dateTo, interval, params } = req.body;
-  //const token = req.headers.authorization?.split(' ')[1] || '';
-  const token = process.env.TReadOnly || '';
+  const token = process.env.TReadOnly || '';   // T‑Invest токен больше не из запроса
   const taskId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
   backtestQueue.addTask({
     taskId,
+    userId: user.id,
     instrumentUid,
     dateFrom,
     dateTo,
@@ -597,6 +597,21 @@ app.post('/api/backtest/tasks', verifyToken, async (req: Request, res: Response)
   });
 
   res.status(202).json({ taskId, status: 'pending' });
+});
+
+app.get('/api/backtest/tasks', verifyToken, (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const allTasks = backtestQueue.getAllTasks();
+  // фильтруем по userId, если он есть
+  const userTasks = allTasks.filter(t => !t.userId || t.userId === user.id);
+  res.json(userTasks.map(t => ({
+    taskId: t.taskId,
+    instrumentUid: t.instrumentUid,
+    dateFrom: t.dateFrom,
+    dateTo: t.dateTo,
+    status: t.status,
+    error: t.error,
+  })));
 });
 
 app.get('/api/backtest/tasks/:taskId', verifyToken, (req: Request, res: Response) => {

@@ -6,6 +6,7 @@ import { CandleInterval } from '../generated/marketdataTypes';
 
 interface Task {
   taskId: string;
+  userId?: number;
   instrumentUid: string;
   dateFrom: string;
   dateTo: string;
@@ -27,8 +28,8 @@ export class BacktestQueue {
     this.process();
   }
 
-  public getTask(taskId: string): Task | undefined {
-    return this.tasks.get(taskId);
+  public getAllTasks(): Task[] {
+    return Array.from(this.tasks.values());
   }
 
   private async process(): Promise<void> {
