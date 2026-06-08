@@ -632,6 +632,6 @@ app.get('/api/backtest/results/:taskId', verifyToken, (req: Request, res: Respon
   res.json(task.result);
 });
 
-app.listen(PORT, () => {
-  console.log(`Сервер прослушивает порт ${PORT}`)
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Сервер прослушивает порт ${PORT}`);
 });
