@@ -33,7 +33,7 @@ export class BacktestQueue {
     // Сохраняем задачу в Supabase сразу
     try {
       const { error } = await SBase.from('backtest_tasks').insert({
-        id: task.taskId,
+        task_id: task.taskId,
         batch_id: task.batchId || null,
         user_id: task.userId || null,
         instrument_uid: task.instrumentUid,
@@ -44,7 +44,7 @@ export class BacktestQueue {
         params: task.params,
         market_phase: task.marketPhase || null,
         status: 'pending'
-      });
+      } as any);
       if (error) console.warn('Supabase insert error:', error.message);
     } catch (e) {
       console.warn('Supabase save error:', e);
@@ -101,12 +101,12 @@ export class BacktestQueue {
   private async updateTaskInSupabase(task: Task): Promise<void> {
     try {
       const { error } = await SBase.from('backtest_tasks').upsert({
-        id: task.taskId,
+        task_id: task.taskId,
         batch_id: task.batchId || null,
         status: task.status,
         result: task.result || null,
         error: task.error || null,
-      });
+      } as any);
       if (error) console.warn('Supabase update error:', error.message);
     } catch (e) {
       console.warn('Supabase update error:', e);

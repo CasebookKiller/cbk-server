@@ -614,15 +614,11 @@ app.get('/api/backtest/tasks', verifyToken, (req: Request, res: Response) => {
   })));
 });
 
-app.get('/api/backtest/tasks/:taskId', verifyToken, (req: Request, res: Response) => {
+app.get('/api/backtest/tasks/:taskId', verifyToken, async (req: Request, res: Response) => {
   const taskId = req.params.taskId as string;
-  const task = backtestQueue.getTask(taskId);
-  if (!task) return res.status(404).json({ error: 'Task not found' });
-  res.json({
-    taskId: task.taskId,
-    status: task.status,
-    error: task.status === 'failed' ? task.error : undefined,
-  });
+  const { data } = await SBase.from('backtest_tasks').select('*').eq('task_id', taskId).single();
+  if (!data) return res.status(404).json({ error: 'Task not found' });
+  res.json({ taskId: data.task_id, status: data.status, error: data.error });
 });
 
 app.get('/api/backtest/results/:taskId', verifyToken, (req: Request, res: Response) => {
@@ -671,7 +667,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
   }
 
   // Обновим статус batch'а на running
-  await SBase.from('backtest_batches').update({ status: 'running' }).eq('id', batchId);
+  await SBase.from('backtest_batches').update({ status: 'running' }).eq('task_id', batchId);
 
   res.status(202).json({ batchId, status: 'running', tasks: instruments.length });
 });
@@ -679,7 +675,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
 // GET /api/backtest/batch/:batchId – статус batch'а и список задач
 app.get('/api/backtest/batch/:batchId', verifyToken, async (req: Request, res: Response) => {
   const batchId = req.params.batchId as string;
-  const { data: batch } = await SBase.from('backtest_batches').select('*').eq('id', batchId).single();
+  const { data: batch } = await SBase.from('backtest_batches').select('*').eq('task_id', batchId).single();
   if (!batch) return res.status(404).json({ error: 'Batch not found' });
 
   const { data: tasks } = await SBase.from('backtest_tasks').select('*').eq('batch_id', batchId);
