@@ -581,7 +581,8 @@ const backtestQueue = new BacktestQueue(loader);
 app.post('/api/backtest/tasks', verifyToken, async (req: Request, res: Response) => {
   const user = (req as any).user;
   const { instrumentUid, dateFrom, dateTo, interval, params } = req.body;
-  const token = req.headers.authorization?.split(' ')[1] || '';
+  //const token = req.headers.authorization?.split(' ')[1] || '';
+  const token = process.env.TReadOnly || '';
   const taskId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
   backtestQueue.addTask({

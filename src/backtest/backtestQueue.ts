@@ -10,7 +10,6 @@ interface Task {
   dateFrom: string;
   dateTo: string;
   interval: CandleInterval;
-  token: string;
   params: any;
   status: 'pending' | 'running' | 'completed' | 'failed';
   result?: any;
@@ -48,8 +47,9 @@ export class BacktestQueue {
     try {
       const from = new Date(task.dateFrom + 'T07:00:00Z');
       const to = new Date(task.dateTo + 'T16:00:00Z');
+      const token = process.env.TReadOnly || '';
       const candles = await this.loader.loadIntradayCandles(
-        task.instrumentUid, from, to, task.token, task.interval
+        task.instrumentUid, from, to, token, task.interval
       );
 
       const engine = new VolumeProfileEngine({ skipAutoSubscribe: true });
