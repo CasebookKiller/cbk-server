@@ -62,6 +62,8 @@ export function generateToken (user: User | TGID) {
     
 }
 
+// old version
+/*
 export function verifyToken(req: any, res: any, next: any) {  
   const token = req.headers['authorization']?.split(' ')[1].replace(' ', '');  
   if (!token) {  
@@ -88,6 +90,28 @@ export function verifyToken(req: any, res: any, next: any) {
   }  
   //console.log('return next()');
   return next();  
+}
+*/
+export function verifyToken(req: any, res: any, next: any) {  
+  const token = req.headers['authorization']?.split(' ')[1].replace(' ', '');  
+  if (!token) {  
+    return res.status(403).send('Требуется токен аутентификации');  
+  }
+  try {  
+    jwt.verify(token, jwtPrivateKey, (err: any, decoded: any) => {  
+      if (err) {  
+        if (err.name === 'TokenExpiredError') {
+          return res.status(401).send('Токен просрочен');  
+        }
+        return res.status(403).send('Неправильный токен');  
+      } 
+      req.user = decoded;
+      next();  
+    });  
+  } catch (err) {  
+    return res.status(401).send('Неправильный токен');  
+  }
+  // Убираем «return next();» – он вызывал двойную отправку
 }
 
 // Извлечение base64 из dataUrl
