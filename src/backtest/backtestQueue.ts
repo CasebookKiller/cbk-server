@@ -32,7 +32,7 @@ export class BacktestQueue {
     this.tasks.set(task.taskId, task);
     // Сохраняем задачу в Supabase сразу
     try {
-      const { error } = await SBase.from('backtest_tasks').insert({
+      const { error } = await (SBase.from('backtest_tasks') as any).insert({
         task_id: task.taskId,
         batch_id: task.batchId || null,
         user_id: task.userId || null,
@@ -100,13 +100,13 @@ export class BacktestQueue {
 
   private async updateTaskInSupabase(task: Task): Promise<void> {
     try {
-      const { error } = await SBase.from('backtest_tasks').upsert({
-        task_id: task.taskId,
-        batch_id: task.batchId || null,
-        status: task.status,
-        result: task.result || null,
-        error: task.error || null,
-      } as any);
+      const { error } = await (SBase.from('backtest_tasks') as any)
+        .update({
+          status: task.status,
+          result: task.result || null,
+          error: task.error || null,
+        })
+        .eq('task_id', task.taskId);
       if (error) console.warn('Supabase update error:', error.message);
     } catch (e) {
       console.warn('Supabase update error:', e);

@@ -618,7 +618,7 @@ app.get('/api/backtest/tasks/:taskId', verifyToken, async (req: Request, res: Re
   const taskId = req.params.taskId as string;
   console.log(`[DEBUG] GET /api/backtest/tasks/${taskId}`);
   try {
-    const { data, error } = await SBase.from('backtest_tasks').select('*').eq('task_id', taskId).single();
+    const { data, error } = await (SBase.from('backtest_tasks') as any).select('*').eq('task_id', taskId).single();
     if (error) {
       console.error('[Supabase error]', error);
       return res.status(500).json({ error: 'Database error' });
@@ -652,7 +652,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
   const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
 
   // Сохраняем batch в Supabase
-  await SBase.from('backtest_batches').insert({
+  await (SBase.from('backtest_batches') as any).insert({
     id: batchId,
     user_id: user.id,
     params: { instruments, dateFrom, dateTo, interval, strategy, params },
@@ -677,7 +677,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
   }
 
   // Обновим статус batch'а на running
-  await SBase.from('backtest_batches').update({ status: 'running' }).eq('task_id', batchId);
+  await (SBase.from('backtest_batches') as any).update({ status: 'running' }).eq('task_id', batchId);
 
   res.status(202).json({ batchId, status: 'running', tasks: instruments.length });
 });
@@ -685,17 +685,17 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
 // GET /api/backtest/batch/:batchId – статус batch'а и список задач
 app.get('/api/backtest/batch/:batchId', verifyToken, async (req: Request, res: Response) => {
   const batchId = req.params.batchId as string;
-  const { data: batch } = await SBase.from('backtest_batches').select('*').eq('task_id', batchId).single();
+  const { data: batch } = await (SBase.from('backtest_batches') as any).select('*').eq('task_id', batchId).single();
   if (!batch) return res.status(404).json({ error: 'Batch not found' });
 
-  const { data: tasks } = await SBase.from('backtest_tasks').select('*').eq('batch_id', batchId);
+  const { data: tasks } = await (SBase.from('backtest_tasks') as any).select('*').eq('batch_id', batchId);
   res.json({ batch, tasks });
 });
 
 // GET /api/backtest/batch/:batchId/results – агрегированные результаты
 app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request, res: Response) => {
   const batchId = req.params.batchId as string;
-  const { data: tasks } = await SBase.from('backtest_tasks').select('*').eq('batch_id', batchId);
+  const { data: tasks } = await (SBase.from('backtest_tasks') as any).select('*').eq('batch_id', batchId);
   if (!tasks) return res.status(404).json({ error: 'No tasks found' });
 
   const summary = {
