@@ -29,3 +29,5 @@ else
 fi
 
 echo "Деплой завершён"
+echo "Для проверки логов использую команду"
+echo "pm2 logs cbk-server --lines 30"
