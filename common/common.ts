@@ -111,7 +111,6 @@ export function verifyToken(req: any, res: any, next: any) {
   } catch (err) {  
     return res.status(401).send('Неправильный токен');  
   }
-  // Убираем «return next();» – он вызывал двойную отправку
 }
 
 // Извлечение base64 из dataUrl
