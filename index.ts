@@ -616,13 +616,18 @@ app.get('/api/backtest/tasks', verifyToken, (req: Request, res: Response) => {
 
 app.get('/api/backtest/tasks/:taskId', verifyToken, async (req: Request, res: Response) => {
   const taskId = req.params.taskId as string;
+  console.log(`[DEBUG] GET /api/backtest/tasks/${taskId}`);
   try {
-    const { data } = await SBase.from('backtest_tasks').select('*').eq('task_id', taskId).single();
+    const { data, error } = await SBase.from('backtest_tasks').select('*').eq('task_id', taskId).single();
+    if (error) {
+      console.error('[Supabase error]', error);
+      return res.status(500).json({ error: 'Database error' });
+    }
     if (!data) return res.status(404).json({ error: 'Task not found' });
     res.json({ taskId: data.task_id, status: data.status, error: data.error });
   } catch (err: any) {
-    console.error('Error fetching task:', err.message);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('[Exception in tasks/:taskId]', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
