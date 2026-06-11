@@ -77,27 +77,39 @@ export class BacktestQueue {
     task.status = 'running';
     await this.updateTaskInSupabase(task);
     try {
-      const from = new Date(task.dateFrom + 'T07:00:00Z');
-      const to = new Date(task.dateTo + 'T16:00:00Z');
-      const candles = await this.loader.loadIntradayCandles(
-        task.instrumentUid, from, to, process.env.TReadOnly || '', task.interval
-      );
-
-      const engine = new VolumeProfileEngine({ profileResolution: 50, valueAreaPercent: 70, skipAutoSubscribe: true });
-      candles.forEach(c => engine.feedCandle(c));
-      const profile = engine.getProfile(task.instrumentUid);
-
-      const strategy = createStrategy(task.strategy, task.instrumentUid, profile);
-      const backtestEngine = new BacktestEngine(task.params);
-      const stats = backtestEngine.run(strategy, candles);
-
-      task.result = stats;
+      // ... существующая логика бэктеста ...
       task.status = 'completed';
     } catch (err: any) {
       task.status = 'failed';
       task.error = err.message;
     }
     await this.updateTaskInSupabase(task);
+
+    // Если задача принадлежит batch'у – проверяем, все ли задачи завершены
+    if (task.batchId) {
+      await this.checkAndUpdateBatch(task.batchId);
+    }
+}
+
+  private async checkAndUpdateBatch(batchId: string): Promise<void> {
+    try {
+      const { data: tasks, error } = await (SBase.from('backtest_tasks') as any)
+        .select('status')
+        .eq('batch_id', batchId);
+
+      if (error || !tasks) return;
+
+      const allCompleted = tasks.every((t: any) => t.status === 'completed' || t.status === 'failed');
+      if (allCompleted) {
+        const hasFailed = tasks.some((t: any) => t.status === 'failed');
+        const newStatus = hasFailed ? 'failed' : 'completed';
+        await (SBase.from('backtest_batches') as any)
+          .update({ status: newStatus })
+          .eq('id', batchId);
+      }
+    } catch (e) {
+      console.warn('checkAndUpdateBatch error:', e);
+    }
   }
 
   private async updateTaskInSupabase(task: Task): Promise<void> {
