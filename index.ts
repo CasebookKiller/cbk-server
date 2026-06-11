@@ -715,6 +715,8 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
     }))
   };
 
+  console.log('Raw tasks for batch', batchId, tasks.map(t => ({ id: t.id, result: t.result })));
+
   res.json(summary);
 });
 
