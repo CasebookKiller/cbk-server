@@ -582,6 +582,7 @@ const backtestQueue = new BacktestQueue(loader);
 app.post('/api/backtest/tasks', verifyToken, async (req: Request, res: Response) => {
   const user = (req as any).user;
   const { instrumentUid, dateFrom, dateTo, interval, strategy, params } = req.body;
+  console.log('Received task:', { instrumentUid, dateFrom, dateTo, strategy });
   const token = process.env.TReadOnly || '';
   const taskId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
