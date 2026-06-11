@@ -717,6 +717,19 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
   res.json(summary);
 });
 
+// GET /api/backtest/batches – список batch'ов
+app.get('/api/backtest/batches', verifyToken, async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const { data, error } = await SBase
+    .from('backtest_batches')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
 // Health-check endpoint для мониторинга
 app.get('/health', (_req, res) => {
   res.status(200).json({
