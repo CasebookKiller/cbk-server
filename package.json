@@ -11,7 +11,8 @@
     "web": "cd ../wetothemoon-web && vite",
     "server-old": "npx tsc && NODE_OPTIONS=--openssl-legacy-provider nodemon -q dist/index.js",
     "server": "npx tsc && cp -r proto dist/proto && NODE_OPTIONS=--openssl-legacy-provider nodemon -q dist/index.js",
-    "dev": "concurrently \"npm run server\" \"npm run web\""
+    "dev": "concurrently \"npm run server\" \"npm run web\"",
+    "postrestart": "node /opt/monitoring-scripts/startup-log-analyzer.js"
   },
   "keywords": [],
   "author": "casebook{killer}",
