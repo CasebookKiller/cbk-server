@@ -709,7 +709,8 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
       taskId: t.id,
       instrumentUid: t.instrument_uid,
       status: t.status,
-      portfolio: t.result?.portfolio,
+      totalProfit: t.result?.portfolio?.totalProfit ?? t.result?.totalProfit,
+      winRate: t.result?.portfolio?.winRate ?? t.result?.winRate,
       error: t.error,
     }))
   };
