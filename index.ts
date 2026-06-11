@@ -581,8 +581,8 @@ const backtestQueue = new BacktestQueue(loader);
 
 app.post('/api/backtest/tasks', verifyToken, async (req: Request, res: Response) => {
   const user = (req as any).user;
-  const { instrumentUid, dateFrom, dateTo, interval, params } = req.body;
-  const token = process.env.TReadOnly || '';   // T‑Invest токен больше не из запроса
+  const { instrumentUid, dateFrom, dateTo, interval, strategy, params } = req.body;
+  const token = process.env.TReadOnly || '';
   const taskId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
   backtestQueue.addTask({
@@ -592,7 +592,7 @@ app.post('/api/backtest/tasks', verifyToken, async (req: Request, res: Response)
     dateFrom,
     dateTo,
     interval,
-    token,
+    strategy,         // ← важно!
     params,
     status: 'pending'
   });
