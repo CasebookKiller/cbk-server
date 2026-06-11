@@ -2,6 +2,7 @@
 // index.ts
 
 import cors from 'cors';
+import { exec } from 'child_process';
 
 import express, { Express, Request, Response } from 'express';
 
@@ -717,4 +718,18 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Сервер прослушивает порт ${PORT}`);
+
+  // Автоматический анализ логов через 3 секунды после старта
+  setTimeout(() => {
+    exec(
+      'node /opt/monitoring-scripts/startup-log-analyzer.js',
+      (error, stdout, stderr) => {
+        if (error) {
+          console.error('Log analyzer error:', stderr || error.message);
+        } else {
+          console.log('Log analyzer:', stdout);
+        }
+      }
+    );
+  }, 3000);
 });
