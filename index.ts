@@ -716,6 +716,15 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
   res.json(summary);
 });
 
+// Health-check endpoint для мониторинга
+app.get('/health', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Сервер прослушивает порт ${PORT}`);
 
