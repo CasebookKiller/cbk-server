@@ -687,10 +687,10 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
 // GET /api/backtest/batch/:batchId – статус batch'а и список задач
 app.get('/api/backtest/batch/:batchId', verifyToken, async (req: Request, res: Response) => {
   const batchId = req.params.batchId as string;
-  const { data: batch } = await (SBase.from('backtest_batches') as any).select('*').eq('task_id', batchId).single();
+  const { data: batch } = await SBase.from('backtest_batches').select('*').eq('id', batchId).single();
   if (!batch) return res.status(404).json({ error: 'Batch not found' });
 
-  const { data: tasks } = await (SBase.from('backtest_tasks') as any).select('*').eq('batch_id', batchId);
+  const { data: tasks } = await SBase.from('backtest_tasks').select('*').eq('batch_id', batchId);
   res.json({ batch, tasks });
 });
 
