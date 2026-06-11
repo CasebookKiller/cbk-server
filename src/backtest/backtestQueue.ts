@@ -77,7 +77,21 @@ export class BacktestQueue {
     task.status = 'running';
     await this.updateTaskInSupabase(task);
     try {
-      // ... существующая логика бэктеста ...
+      const from = new Date(task.dateFrom + 'T07:00:00Z');
+      const to = new Date(task.dateTo + 'T16:00:00Z');
+      const candles = await this.loader.loadIntradayCandles(
+        task.instrumentUid, from, to, process.env.TReadOnly || '', task.interval
+      );
+
+      const engine = new VolumeProfileEngine({ profileResolution: 50, valueAreaPercent: 70, skipAutoSubscribe: true });
+      candles.forEach(c => engine.feedCandle(c));
+      const profile = engine.getProfile(task.instrumentUid);
+
+      const strategy = createStrategy(task.strategy, task.instrumentUid, profile);
+      const backtestEngine = new BacktestEngine(task.params);
+      const stats = backtestEngine.run(strategy, candles);
+
+      task.result = stats;
       task.status = 'completed';
     } catch (err: any) {
       task.status = 'failed';
@@ -85,11 +99,10 @@ export class BacktestQueue {
     }
     await this.updateTaskInSupabase(task);
 
-    // Если задача принадлежит batch'у – проверяем, все ли задачи завершены
     if (task.batchId) {
       await this.checkAndUpdateBatch(task.batchId);
     }
-}
+  }
 
   private async checkAndUpdateBatch(batchId: string): Promise<void> {
     try {
