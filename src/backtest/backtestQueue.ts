@@ -95,6 +95,7 @@ export class BacktestQueue {
       task.status = 'completed';
     } catch (err: any) {
       task.status = 'failed';
+      console.error('Backtest failed:', err);
       task.error = err.message;
     }
     await this.updateTaskInSupabase(task);
