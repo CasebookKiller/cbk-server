@@ -82,7 +82,7 @@ export class BacktestQueue {
       const candles = await this.loader.loadIntradayCandles(
         task.instrumentUid, from, to, process.env.TReadOnly || '', task.interval
       );
-
+      console.log('Task params:', JSON.stringify(task.params));
       const engine = new VolumeProfileEngine({ profileResolution: 50, valueAreaPercent: 70, skipAutoSubscribe: true });
       candles.forEach(c => engine.feedCandle(c));
       const profile = engine.getProfile(task.instrumentUid);
