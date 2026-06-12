@@ -83,6 +83,15 @@ export class BacktestQueue {
         task.instrumentUid, from, to, process.env.TReadOnly || '', task.interval
       );
       console.log('Task params:', JSON.stringify(task.params));
+      console.log(`[CLOUD] Portfolio config:`, {
+        initialCapital: 100000,
+        stopLossPercent: task.params.stopLossPercent,
+        takeProfitPercent: task.params.takeProfitPercent,
+        trailingDistancePercent: task.params.trailingDistancePercent,
+        lotQuantity: task.params.lots,
+        positionSizing: task.params.positionSizing,
+        riskPercent: task.params.riskPercent,
+      });
       const engine = new VolumeProfileEngine({ profileResolution: 50, valueAreaPercent: 70, skipAutoSubscribe: true });
       candles.forEach(c => engine.feedCandle(c));
       const profile = engine.getProfile(task.instrumentUid);
