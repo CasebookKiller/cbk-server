@@ -144,7 +144,7 @@ export class HistoricalDataLoader {
 
     // Автоочистка старых кэш-файлов (старше 30 дней)
     this.cleanOldCache().catch(e => console.warn('Cache cleanup error:', e));
-
+    console.log(`Total candles loaded for ${instrumentUid}: ${allCandles.length}`);
     return allCandles;
   }
 
