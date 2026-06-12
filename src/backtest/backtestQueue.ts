@@ -77,30 +77,79 @@ export class BacktestQueue {
     task.status = 'running';
     await this.updateTaskInSupabase(task);
     try {
-      const from = new Date(task.dateFrom + 'T07:00:00Z');
-      const to = new Date(task.dateTo + 'T16:00:00Z');
-      const candles = await this.loader.loadIntradayCandles(
-        task.instrumentUid, from, to, process.env.TReadOnly || '', task.interval
-      );
-      console.log('Task params:', JSON.stringify(task.params));
-      console.log(`[CLOUD] Portfolio config:`, {
+      const allSignals: any[] = [];
+      const allCandles: any[] = [];
+      const portfolio = new VirtualPortfolio({
         initialCapital: 100000,
-        stopLossPercent: task.params.stopLossPercent,
-        takeProfitPercent: task.params.takeProfitPercent,
-        trailingDistancePercent: task.params.trailingDistancePercent,
-        lotQuantity: task.params.lots,
-        positionSizing: task.params.positionSizing,
-        riskPercent: task.params.riskPercent,
+        stopLossPercent: task.params.stopLossPercent || 0,
+        takeProfitPercent: task.params.takeProfitPercent || 0,
+        trailingDistancePercent: task.params.trailingDistancePercent || 0,
+        lotQuantity: task.params.lots || 1,
+        positionSizing: task.params.positionSizing || 'fixed',
+        riskPercent: task.params.riskPercent || 1,
       });
-      const engine = new VolumeProfileEngine({ profileResolution: 50, valueAreaPercent: 70, skipAutoSubscribe: true });
-      candles.forEach(c => engine.feedCandle(c));
-      const profile = engine.getProfile(task.instrumentUid);
 
-      const strategy = createStrategy(task.strategy, task.instrumentUid, profile);
-      const backtestEngine = new BacktestEngine(task.params);
-      const stats = backtestEngine.run(strategy, candles);
+      const currentDate = new Date(task.dateFrom + 'T07:00:00Z');
+      const endDate = new Date(task.dateTo + 'T16:00:00Z');
 
-      task.result = stats;
+      while (currentDate <= endDate) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        const dayFrom = new Date(dateStr + 'T07:00:00Z');
+        const dayTo = new Date(dateStr + 'T16:00:00Z');
+
+        const candles = await this.loader.loadIntradayCandles(
+          task.instrumentUid, dayFrom, dayTo, process.env.TReadOnly || '', task.interval
+        );
+
+        if (candles.length > 0) {
+          const engine = new VolumeProfileEngine({
+            profileResolution: 50,
+            valueAreaPercent: 70,
+            skipAutoSubscribe: true,
+          });
+          candles.forEach(c => engine.feedCandle(c));
+          const profile = engine.getProfile(task.instrumentUid);
+
+          const strategy = createStrategy(task.strategy, task.instrumentUid, profile);
+
+          for (const candle of candles) {
+            strategy.onCandle(candle);
+            const newSignals = strategy.getSignals();
+            for (const signal of newSignals) {
+              portfolio.processSignal(signal);
+              allSignals.push(signal);
+            }
+            strategy.clearSignals();
+
+            const high = quotationToNumber(candle.high);
+            const low = quotationToNumber(candle.low);
+            const close = quotationToNumber(candle.close);
+            portfolio.checkStopTake(high, low, close, candle.time || '');
+          }
+
+          allCandles.push(...candles);
+        }
+
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      if (allCandles.length > 0) {
+        const lastCandle = allCandles[allCandles.length - 1];
+        const lastPrice = quotationToNumber(lastCandle.close);
+        portfolio.finalizeWithLastPrice(lastPrice, lastCandle.time || '');
+      } else {
+        portfolio.finalizeWithLastPrice(0, '');
+      }
+
+      const stats = portfolio.getStats();
+      const backtestStats = {
+        totalSignals: allSignals.length,
+        buySignals: allSignals.filter(s => s.type === 'BUY').length,
+        sellSignals: allSignals.filter(s => s.type === 'SELL').length,
+        portfolio: stats,
+      };
+
+      task.result = backtestStats;
       task.status = 'completed';
     } catch (err: any) {
       task.status = 'failed';
