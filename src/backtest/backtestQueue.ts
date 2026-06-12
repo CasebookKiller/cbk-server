@@ -7,6 +7,7 @@ import { BacktestEngine } from './backtestEngine';
 import { createStrategy } from './strategies/strategyFactory';
 import { CandleInterval } from '../generated/marketdataTypes';
 import SBase from '../../supabaseClient';
+import { VirtualPortfolio } from './virtualPortfolio';
 
 interface Task {
   taskId: string;
@@ -22,6 +23,13 @@ interface Task {
   status: 'pending' | 'running' | 'completed' | 'failed';
   result?: any;
   error?: string;
+}
+
+function quotationToNumber(q: any): number {
+  if (!q) return 0;
+  const units = Number(q.units || 0);
+  const nano = q.nano || 0;
+  return units + nano / 1e9;
 }
 
 export class BacktestQueue {
