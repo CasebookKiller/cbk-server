@@ -26,25 +26,41 @@ export class HistoricalDataLoader {
     token: string,
     interval: CandleInterval = CandleInterval.CANDLE_INTERVAL_1_MIN
   ): Promise<StreamCandle[]> {
-    const request = {
-      instrumentId: instrumentUid,
-      interval,
-      from: { seconds: Math.floor(from.getTime() / 1000), nanos: 0 },
-      to: { seconds: Math.floor(to.getTime() / 1000), nanos: 0 },
-      candleSourceType: CandleSourceRequest.CANDLE_SOURCE_EXCHANGE,
-    };
+    const allCandles: StreamCandle[] = [];
+    let currentDate = new Date(from);
+    currentDate.setHours(7, 0, 0, 0); // начало основной сессии МСК
 
-    const response = await marketDataGrpc.getCandles(request, token);
-    const candles = response.candles || [];
+    while (currentDate <= to) {
+      const dayFrom = new Date(currentDate);
+      const dayTo = new Date(currentDate);
+      dayTo.setHours(16, 0, 0, 0); // конец основной сессии
+      if (dayTo > to) dayTo.setTime(to.getTime());
 
-    return candles.map(candle => ({
-      instrumentUid,
-      open: candle.open,
-      high: candle.high,
-      low: candle.low,
-      close: candle.close,
-      volume: String(candle.volume || '0'),
-      time: timestampToISO(candle.time),
-    }));
+      const request = {
+        instrumentId: instrumentUid,
+        interval,
+        from: { seconds: Math.floor(dayFrom.getTime() / 1000), nanos: 0 },
+        to: { seconds: Math.floor(dayTo.getTime() / 1000), nanos: 0 },
+        candleSourceType: CandleSourceRequest.CANDLE_SOURCE_EXCHANGE,
+      };
+
+      const response = await marketDataGrpc.getCandles(request, token);
+      const candles = response.candles || [];
+
+      const dayCandles = candles.map(candle => ({
+        instrumentUid,
+        open: candle.open,
+        high: candle.high,
+        low: candle.low,
+        close: candle.close,
+        volume: String(candle.volume || '0'),
+        time: timestampToISO(candle.time),
+      }));
+
+      allCandles.push(...dayCandles);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return allCandles;
   }
 }
