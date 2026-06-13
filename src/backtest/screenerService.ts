@@ -14,6 +14,7 @@ export interface ScreenerResult {
   figi: string;
   ticker: string;
   name: string;
+  uid: string;
   lastPrice: number;
   avgVolume: number;
   vaWidthPercent: number;
@@ -66,6 +67,7 @@ export class ScreenerService {
           figi: '',
           ticker: instr.ticker,
           name: instr.name,
+          uid: instr.uid,          // ← uid инструмента
           lastPrice: profile.poc,
           avgVolume,
           vaWidthPercent: Math.round(vaWidthPercent * 100) / 100,
