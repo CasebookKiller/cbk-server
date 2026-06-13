@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 // index.ts
 
 import cors from 'cors';
@@ -27,6 +27,9 @@ import { TOKEN } from './common/common';
 import { PostgrestSingleResponse } from '@supabase/supabase-js';
 import { findTInstrument, getInfo, getPortfolio, sdkGetBond, sdkGetEvents, sdkGetBonds, sdkGetInfo } from './tbank';
 import { createSdk } from './api/t-invest-sdk/sdk';
+
+import { ScreenerService } from './src/backtest/screenerService';
+import { instrumentsGrpc } from './src/services/tbank/InstrumentsGrpcService'; 
 
 // создать клиента с заданным токеном доступа
 //const api = new TinkoffInvestApi({ token: TOKEN });
@@ -350,6 +353,7 @@ app.post('/registration', async (req: Request, res: Response) => {
   const response = await insertTUser( username, email, password, generateToken(tuser), tgid );
 
   const user = response?.data?.find((user) => {
+    // @ts-ignore
     return user.email === email && user.password === password || user.email === email && user.tgid === tgid;
   });
 
@@ -358,11 +362,17 @@ app.post('/registration', async (req: Request, res: Response) => {
   }
 
   const result = {
+    // @ts-ignore
     id: user.id,
+    // @ts-ignore
     created_at: user.created_at,
+    // @ts-ignore
     name: user.username,
+    // @ts-ignore
     email: user.email,
+    // @ts-ignore
     token: user.last_token,
+    // @ts-ignore
     tgid: user.tgid
   }
 
@@ -687,9 +697,10 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
 // GET /api/backtest/batch/:batchId – статус batch'а и список задач
 app.get('/api/backtest/batch/:batchId', verifyToken, async (req: Request, res: Response) => {
   const batchId = req.params.batchId as string;
+  // @ts-ignore
   const { data: batch } = await SBase.from('backtest_batches').select('*').eq('id', batchId).single();
   if (!batch) return res.status(404).json({ error: 'Batch not found' });
-
+  // @ts-ignore
   const { data: tasks } = await SBase.from('backtest_tasks').select('*').eq('batch_id', batchId);
   res.json({ batch, tasks });
 });
@@ -703,9 +714,9 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
   const summary = {
     batchId,
     total: tasks.length,
-    completed: tasks.filter(t => t.status === 'completed').length,
-    failed: tasks.filter(t => t.status === 'failed').length,
-    results: tasks.map(t => ({
+    completed: tasks.filter((t:any) => t.status === 'completed').length,
+    failed: tasks.filter((t:any) => t.status === 'failed').length,
+    results: tasks.map((t:any) => ({
       taskId: t.id,
       instrumentUid: t.instrument_uid,
       status: t.status,
@@ -715,7 +726,7 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
     }))
   };
 
-  console.log('Raw tasks for batch', batchId, tasks.map(t => ({ id: t.id, result: t.result })));
+  console.log('Raw tasks for batch', batchId, tasks.map((t:any) => ({ id: t.id, result: t.result })));
 
   res.json(summary);
 });
@@ -726,11 +737,37 @@ app.get('/api/backtest/batches', verifyToken, async (req: Request, res: Response
   const { data, error } = await SBase
     .from('backtest_batches')
     .select('*')
+    // @ts-ignore
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data || []);
+});
+
+app.get('/api/screener', verifyToken, async (req: Request, res: Response) => {
+  const token = process.env.TReadOnly || '';
+  const { minVolume, maxVA, minPOC } = req.query;
+  const filters = {
+    minDailyVolume: Number(minVolume) || undefined,
+    maxVaWidthPercent: Number(maxVA) || undefined,
+    minPocStrength: Number(minPOC) || undefined,
+  };
+
+  try {
+    const sharesResp = await instrumentsGrpc.shares({ instrumentStatus: 1 }, token);
+    const instruments = (sharesResp.instruments || [])
+      .filter((i: any) => i.apiTradeAvailableFlag && i.currency?.toLowerCase() === 'rub')
+      .map((i: any) => ({ uid: i.uid, ticker: i.ticker, name: i.name }));
+
+    const loader = new HistoricalDataLoader();
+    const screener = new ScreenerService(loader, token);
+    const results = await screener.screen(filters, instruments);
+    res.json(results);
+  } catch (err: any) {
+    console.error('Screener error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Health-check endpoint для мониторинга
@@ -742,7 +779,7 @@ app.get('/health', (_req, res) => {
   });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Сервер прослушивает порт ${PORT}`);
 
   // Автоматический анализ логов через 3 секунды после старта
