@@ -709,26 +709,38 @@ app.get('/api/backtest/batch/:batchId', verifyToken, async (req: Request, res: R
 app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request, res: Response) => {
   const batchId = req.params.batchId as string;
   const { data: tasks } = await (SBase.from('backtest_tasks') as any).select('*').eq('batch_id', batchId);
+  const { data: batch } = await (SBase.from('backtest_batches') as any).select('*').eq('id', batchId).single();
+
   if (!tasks) return res.status(404).json({ error: 'No tasks found' });
 
-  const summary = {
-    batchId,
-    total: tasks.length,
-    completed: tasks.filter((t:any) => t.status === 'completed').length,
-    failed: tasks.filter((t:any) => t.status === 'failed').length,
-    results: tasks.map((t:any) => ({
+  // Явно приводим batch к нужному типу, чтобы избежать ошибки SelectQueryError
+  const commonParams: any = (batch as any)?.params || {};
+
+  const results = tasks.map((t: any) => {
+    const stats = t.result?.portfolio || t.result || {};
+    return {
       taskId: t.id,
       instrumentUid: t.instrument_uid,
       status: t.status,
-      totalProfit: t.result?.portfolio?.totalProfit ?? t.result?.totalProfit,
-      winRate: t.result?.portfolio?.winRate ?? t.result?.winRate,
+      totalProfit: stats.totalProfit,
+      totalTrades: stats.totalTrades,
+      winRate: stats.winRate,
+      maxDrawdown: stats.maxDrawdown,
       error: t.error,
-    }))
-  };
+      // параметры прогона
+      dateFrom: commonParams.dateFrom,
+      dateTo: commonParams.dateTo,
+      strategy: commonParams.strategy,
+      stopLoss: commonParams.params?.stopLossPercent,
+      takeProfit: commonParams.params?.takeProfitPercent,
+      trailing: commonParams.params?.trailingDistancePercent,
+      positionSizing: commonParams.params?.positionSizing,
+      lots: commonParams.params?.lots,
+      riskPercent: commonParams.params?.riskPercent,
+    };
+  });
 
-  console.log('Raw tasks for batch', batchId, tasks.map((t:any) => ({ id: t.id, result: t.result })));
-
-  res.json(summary);
+  res.json({ results });
 });
 
 // GET /api/backtest/batches – список batch'ов
