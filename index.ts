@@ -773,7 +773,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
   }
 
   // Обновим статус batch'а на running
-  await (SBase.from('backtest_batches') as any).update({ status: 'running' }).eq('task_id', batchId);
+  await (SBase.from('backtest_batches') as any).update({ status: 'running' }).eq('id', batchId);
 
   const totalTasks = instruments.length * combos.length;
   res.status(202).json({ batchId, status: 'running', tasks: totalTasks });
@@ -812,7 +812,7 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
       winRate: stats.winRate,
       maxDrawdown: stats.maxDrawdown,
       error: t.error,
-      // параметры прогона
+      marketPhase: t.market_phase,   // ← добавлено
       dateFrom: commonParams.dateFrom,
       dateTo: commonParams.dateTo,
       strategy: commonParams.strategy,
