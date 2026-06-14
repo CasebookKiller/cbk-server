@@ -106,7 +106,8 @@ function generateParamGrid(
   tp?: [number, number, number],
   trail?: [number, number, number],
   lots?: [number, number, number],
-  risk?: [number, number, number]
+  risk?: [number, number, number],
+  volPeriod?: [number, number, number]
 ): any[] {
   const grid: any[] = [];
   const slVals = sl ? range(sl[0], sl[1], sl[2]) : [undefined];
@@ -114,20 +115,24 @@ function generateParamGrid(
   const trailVals = trail ? range(trail[0], trail[1], trail[2]) : [undefined];
   const lotsVals = lots ? range(lots[0], lots[1], lots[2]) : [undefined];
   const riskVals = risk ? range(risk[0], risk[1], risk[2]) : [undefined];
+  const volPeriodVals = volPeriod ? range(volPeriod[0], volPeriod[1], volPeriod[2]) : [undefined];
 
   for (const slv of slVals)
     for (const tpv of tpVals)
       for (const trv of trailVals)
         for (const lv of lotsVals)
-          for (const rv of riskVals) {
-            grid.push({
-              stopLossPercent: slv,
-              takeProfitPercent: tpv,
-              trailingDistancePercent: trv,
-              lots: lv,
-              riskPercent: rv,
-            });
-          }
+          for (const rv of riskVals)
+            for (const vp of volPeriodVals) {
+              grid.push({
+                stopLossPercent: slv,
+                takeProfitPercent: tpv,
+                trailingDistancePercent: trv,
+                lots: lv,
+                riskPercent: rv,
+                volumeFilterEnabled: volPeriod !== undefined, // если перебираем период, значит фильтр включён
+                volumeFilterPeriod: vp,
+              });
+            }
   return grid;
 }
 
@@ -698,6 +703,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
     trailMin, trailMax, trailStep,
     lotsMin, lotsMax, lotsStep,
     riskMin, riskMax, riskStep,
+    volPeriodMin, volPeriodMax, volPeriodStep
   } = req.body;
 
   if (!instruments || !Array.isArray(instruments) || instruments.length === 0) {
@@ -716,15 +722,20 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
 
   // Создаём задачи для каждого инструмента
   // Если задана сетка – генерируем комбинации, иначе используем одну комбинацию из params
-  const combos = (slMin !== undefined)
-    ? generateParamGrid(
-        [slMin, slMax, slStep],
-        [tpMin, tpMax, tpStep],
-        [trailMin, trailMax, trailStep],
-        [lotsMin, lotsMax, lotsStep],
-        [riskMin, riskMax, riskStep]
-      )
-    : [params];  // если сетки нет, просто исходные параметры
+  const useGrid = slMin !== undefined; // или явный флаг, можно добавить от клиента
+  let combos: any[];
+  if (useGrid) {
+    combos = generateParamGrid(
+      slMin !== undefined ? [slMin, slMax, slStep] : undefined,
+      tpMin !== undefined ? [tpMin, tpMax, tpStep] : undefined,
+      trailMin !== undefined ? [trailMin, trailMax, trailStep] : undefined,
+      lotsMin !== undefined ? [lotsMin, lotsMax, lotsStep] : undefined,
+      riskMin !== undefined ? [riskMin, riskMax, riskStep] : undefined,
+      volPeriodMin !== undefined ? [volPeriodMin, volPeriodMax, volPeriodStep] : undefined
+    );
+  } else {
+    combos = [params]; // исходные параметры, уже содержат volumeFilterEnabled/Period
+  }
 
   for (const uid of instruments) {
     for (const combo of combos) {
