@@ -752,6 +752,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
     } catch { phaseMap.set(uid, MarketPhase.CHOP); }
   }
 
+  // Создаём задачи для каждого инструмента
   for (const uid of instruments) {
     for (const combo of combos) {
       const taskId = `${batchId}_${uid}_${Date.now()}_${Math.random().toString(36).substr(2,4)}`;
@@ -765,6 +766,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
         interval,
         strategy,
         params: { ...params, ...combo },
+        marketPhase: phaseMap.get(uid),   // ← добавляем фазу
         status: 'pending'
       });
     }
@@ -773,7 +775,8 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
   // Обновим статус batch'а на running
   await (SBase.from('backtest_batches') as any).update({ status: 'running' }).eq('task_id', batchId);
 
-  res.status(202).json({ batchId, status: 'running', tasks: instruments.length });
+  const totalTasks = instruments.length * combos.length;
+  res.status(202).json({ batchId, status: 'running', tasks: totalTasks });
 });
 
 // GET /api/backtest/batch/:batchId – статус batch'а и список задач
