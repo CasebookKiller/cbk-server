@@ -101,7 +101,42 @@ async function fetchB64Photo(file_url: string) {
   return result;
 }
 
+function generateParamGrid(
+  sl?: [number, number, number],
+  tp?: [number, number, number],
+  trail?: [number, number, number],
+  lots?: [number, number, number],
+  risk?: [number, number, number]
+): any[] {
+  const grid: any[] = [];
+  const slVals = sl ? range(sl[0], sl[1], sl[2]) : [undefined];
+  const tpVals = tp ? range(tp[0], tp[1], tp[2]) : [undefined];
+  const trailVals = trail ? range(trail[0], trail[1], trail[2]) : [undefined];
+  const lotsVals = lots ? range(lots[0], lots[1], lots[2]) : [undefined];
+  const riskVals = risk ? range(risk[0], risk[1], risk[2]) : [undefined];
 
+  for (const slv of slVals)
+    for (const tpv of tpVals)
+      for (const trv of trailVals)
+        for (const lv of lotsVals)
+          for (const rv of riskVals) {
+            grid.push({
+              stopLossPercent: slv,
+              takeProfitPercent: tpv,
+              trailingDistancePercent: trv,
+              lots: lv,
+              riskPercent: rv,
+            });
+          }
+  return grid;
+}
+
+function range(min: number, max: number, step: number): number[] {
+  if (!step || step <= 0) return [min];
+  const arr = [];
+  for (let v = min; v <= max + 0.0001; v += step) arr.push(Math.round(v * 100) / 100);
+  return arr;
+}
 
 
 const app: Express = express();
@@ -655,7 +690,15 @@ app.get('/api/backtest/results/:taskId', verifyToken, (req: Request, res: Respon
 // POST /api/backtest/batch – создаёт batch-прогон
 app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
   const user = (req as any).user;
-  const { instruments, dateFrom, dateTo, interval, strategy, params } = req.body;
+  const { 
+    instruments, dateFrom, dateTo, interval, strategy, params,
+    // поля сетки
+    slMin, slMax, slStep,
+    tpMin, tpMax, tpStep,
+    trailMin, trailMax, trailStep,
+    lotsMin, lotsMax, lotsStep,
+    riskMin, riskMax, riskStep,
+  } = req.body;
 
   if (!instruments || !Array.isArray(instruments) || instruments.length === 0) {
     return res.status(400).json({ error: 'instruments array is required' });
@@ -672,20 +715,33 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
   });
 
   // Создаём задачи для каждого инструмента
+  // Если задана сетка – генерируем комбинации, иначе используем одну комбинацию из params
+  const combos = (slMin !== undefined)
+    ? generateParamGrid(
+        [slMin, slMax, slStep],
+        [tpMin, tpMax, tpStep],
+        [trailMin, trailMax, trailStep],
+        [lotsMin, lotsMax, lotsStep],
+        [riskMin, riskMax, riskStep]
+      )
+    : [params];  // если сетки нет, просто исходные параметры
+
   for (const uid of instruments) {
-    const taskId = `${batchId}_${uid}_${Date.now()}`;
-    backtestQueue.addTask({
-      taskId,
-      batchId,
-      userId: user.id,
-      instrumentUid: uid,
-      dateFrom,
-      dateTo,
-      interval,
-      strategy,
-      params,
-      status: 'pending'
-    });
+    for (const combo of combos) {
+      const taskId = `${batchId}_${uid}_${Date.now()}_${Math.random().toString(36).substr(2,4)}`;
+      backtestQueue.addTask({
+        taskId,
+        batchId,
+        userId: user.id,
+        instrumentUid: uid,
+        dateFrom,
+        dateTo,
+        interval,
+        strategy,
+        params: { ...params, ...combo },
+        status: 'pending'
+      });
+    }
   }
 
   // Обновим статус batch'а на running

@@ -32,6 +32,43 @@ function quotationToNumber(q: any): number {
   return units + nano / 1e9;
 }
 
+function generateParamGrid(
+  sl?: [number, number, number],
+  tp?: [number, number, number],
+  trail?: [number, number, number],
+  lots?: [number, number, number],
+  risk?: [number, number, number]
+): any[] {
+  const grid: any[] = [];
+  const slVals = sl ? range(sl[0], sl[1], sl[2]) : [undefined];
+  const tpVals = tp ? range(tp[0], tp[1], tp[2]) : [undefined];
+  const trailVals = trail ? range(trail[0], trail[1], trail[2]) : [undefined];
+  const lotsVals = lots ? range(lots[0], lots[1], lots[2]) : [undefined];
+  const riskVals = risk ? range(risk[0], risk[1], risk[2]) : [undefined];
+
+  for (const slv of slVals)
+    for (const tpv of tpVals)
+      for (const trv of trailVals)
+        for (const lv of lotsVals)
+          for (const rv of riskVals) {
+            grid.push({
+              stopLossPercent: slv,
+              takeProfitPercent: tpv,
+              trailingDistancePercent: trv,
+              lots: lv,
+              riskPercent: rv,
+            });
+          }
+  return grid;
+}
+
+function range(min: number, max: number, step: number): number[] {
+  if (!step || step <= 0) return [min];
+  const arr = [];
+  for (let v = min; v <= max + 0.0001; v += step) arr.push(Math.round(v * 100) / 100);
+  return arr;
+}
+
 export class BacktestQueue {
   private tasks = new Map<string, Task>();
   private running = false;
