@@ -1,5 +1,5 @@
 // /opt/cbk-server/src/backtest/marketPhaseDetector.ts
-import { CandleInterval } from '@/generated/marketdataTypes';
+import { CandleInterval } from '../generated/marketdataTypes';
 import { HistoricalDataLoader } from './historicalDataLoader';
 import { VolumeProfileEngine } from './volumeProfileEngine';
 
