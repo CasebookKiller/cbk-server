@@ -30,9 +30,9 @@ import { createSdk } from './api/t-invest-sdk/sdk';
 
 import { ScreenerService } from './src/backtest/screenerService';
 import { instrumentsGrpc } from './src/services/tbank/InstrumentsGrpcService'; 
-import { MarketPhase, MarketPhaseDetector } from '@/backtest/marketPhaseDetector';
-import { VolumeProfileEngine } from '@/backtest/volumeProfileEngine';
-import { CandleInterval } from '@/generated/marketdataTypes';
+import { MarketPhase, MarketPhaseDetector } from './src/backtest/marketPhaseDetector';
+import { VolumeProfileEngine } from './src/backtest/volumeProfileEngine';
+import { CandleInterval } from './src/generated/marketdataTypes';
 
 // создать клиента с заданным токеном доступа
 //const api = new TinkoffInvestApi({ token: TOKEN });
