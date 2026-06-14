@@ -32,6 +32,7 @@ import { ScreenerService } from './src/backtest/screenerService';
 import { instrumentsGrpc } from './src/services/tbank/InstrumentsGrpcService'; 
 import { MarketPhase, MarketPhaseDetector } from '@/backtest/marketPhaseDetector';
 import { VolumeProfileEngine } from '@/backtest/volumeProfileEngine';
+import { CandleInterval } from '@/generated/marketdataTypes';
 
 // создать клиента с заданным токеном доступа
 //const api = new TinkoffInvestApi({ token: TOKEN });
@@ -871,7 +872,21 @@ app.get('/api/market-phase', verifyToken, async (req: Request, res: Response) =>
 
   try {
     const loader = new HistoricalDataLoader();
+    // Загружаем свечи за последние 2 часа для построения профиля
+    const now = new Date();
+    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+    const candles = await loader.loadIntradayCandles(
+      instrumentUid, twoHoursAgo, now, token, CandleInterval.CANDLE_INTERVAL_5_MIN //'CANDLE_INTERVAL_5_MIN'
+    );
+
     const profileEngine = new VolumeProfileEngine({ skipAutoSubscribe: true });
+    candles.forEach(c => profileEngine.feedCandle(c));
+    const profile = profileEngine.getProfile(instrumentUid);
+
+    if (!profile || candles.length < 5) {
+      return res.json({ instrumentUid, phase: MarketPhase.CHOP });
+    }
+
     const detector = new MarketPhaseDetector(loader, profileEngine);
     const phase = await detector.detectPhase(instrumentUid, token);
     res.json({ instrumentUid, phase });
