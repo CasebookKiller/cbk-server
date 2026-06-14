@@ -30,6 +30,8 @@ import { createSdk } from './api/t-invest-sdk/sdk';
 
 import { ScreenerService } from './src/backtest/screenerService';
 import { instrumentsGrpc } from './src/services/tbank/InstrumentsGrpcService'; 
+import { MarketPhase, MarketPhaseDetector } from '@/backtest/marketPhaseDetector';
+import { VolumeProfileEngine } from '@/backtest/volumeProfileEngine';
 
 // создать клиента с заданным токеном доступа
 //const api = new TinkoffInvestApi({ token: TOKEN });
@@ -737,6 +739,18 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
     combos = [params]; // исходные параметры, уже содержат volumeFilterEnabled/Period
   }
 
+  const loader = new HistoricalDataLoader();
+  const profileEngine = new VolumeProfileEngine({ skipAutoSubscribe: true });
+  const detector = new MarketPhaseDetector(loader, profileEngine);
+  const phaseMap = new Map<string, string>();
+
+  for (const uid of instruments) {
+    try {
+      const phase = await detector.detectPhase(uid, process.env.TReadOnly || '');
+      phaseMap.set(uid, phase);
+    } catch { phaseMap.set(uid, MarketPhase.CHOP); }
+  }
+
   for (const uid of instruments) {
     for (const combo of combos) {
       const taskId = `${batchId}_${uid}_${Date.now()}_${Math.random().toString(36).substr(2,4)}`;
@@ -845,6 +859,24 @@ app.get('/api/screener', verifyToken, async (req: Request, res: Response) => {
     res.json(results);
   } catch (err: any) {
     console.error('Screener error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/market-phase', verifyToken, async (req: Request, res: Response) => {
+  const instrumentUid = req.query.instrument as string;
+  const token = process.env.TReadOnly || '';
+
+  if (!instrumentUid) return res.status(400).json({ error: 'instrument query param required' });
+
+  try {
+    const loader = new HistoricalDataLoader();
+    const profileEngine = new VolumeProfileEngine({ skipAutoSubscribe: true });
+    const detector = new MarketPhaseDetector(loader, profileEngine);
+    const phase = await detector.detectPhase(instrumentUid, token);
+    res.json({ instrumentUid, phase });
+  } catch (err: any) {
+    console.error('Market phase error:', err);
     res.status(500).json({ error: err.message });
   }
 });
