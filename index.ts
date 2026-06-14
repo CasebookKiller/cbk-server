@@ -867,12 +867,10 @@ app.get('/api/screener', verifyToken, async (req: Request, res: Response) => {
 app.get('/api/market-phase', verifyToken, async (req: Request, res: Response) => {
   const instrumentUid = req.query.instrument as string;
   const token = process.env.TReadOnly || '';
-
   if (!instrumentUid) return res.status(400).json({ error: 'instrument query param required' });
 
   try {
     const loader = new HistoricalDataLoader();
-    // Загружаем свечи за последние 2 часа для построения профиля
     const now = new Date();
     const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
     const candles = await loader.loadIntradayCandles(
@@ -884,7 +882,7 @@ app.get('/api/market-phase', verifyToken, async (req: Request, res: Response) =>
     const profile = profileEngine.getProfile(instrumentUid);
 
     if (!profile || candles.length < 5) {
-      return res.json({ instrumentUid, phase: MarketPhase.CHOP });
+      return res.json({ instrumentUid, phase: 'CHOP' });
     }
 
     const detector = new MarketPhaseDetector(loader, profileEngine);
