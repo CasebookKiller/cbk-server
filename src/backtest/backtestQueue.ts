@@ -20,6 +20,7 @@ interface Task {
   strategy: string;
   params: any;
   marketPhase?: string;
+  marketPhases?: string[];
   status: 'pending' | 'running' | 'completed' | 'failed';
   result?: any;
   error?: string;
@@ -94,7 +95,8 @@ export class BacktestQueue {
         interval: task.interval,
         strategy: task.strategy,
         params: task.params,
-        market_phase: task.marketPhase || null,
+        //market_phase: task.marketPhase || null,
+        market_phases: task.marketPhases || null,
         status: 'pending'
       } as any);
       if (error) console.warn('Supabase insert error:', error.message);

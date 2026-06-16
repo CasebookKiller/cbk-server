@@ -740,16 +740,53 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
     combos = [params]; // исходные параметры, уже содержат volumeFilterEnabled/Period
   }
 
-  const loader = new HistoricalDataLoader();
-  const profileEngine = new VolumeProfileEngine({ skipAutoSubscribe: true });
-  const detector = new MarketPhaseDetector(loader, profileEngine);
-  const phaseMap = new Map<string, string>();
+  // Простой детектор фазы по дневным свечам
+  const detectDayPhase = (candles: any[], profile: any): string => {
+    if (!profile || candles.length < 5) return 'CHOP';
+    const insideVA = candles.filter((c: any) => {
+      const close = Number(c.close?.units || c.close || 0);
+      return close >= profile.valueAreaLow && close <= profile.valueAreaHigh;
+    }).length;
+    const percentInside = (insideVA / candles.length) * 100;
+    const lastCandle = candles[candles.length - 1];
+    const high = Number(lastCandle.high?.units || lastCandle.high || 0);
+    const low = Number(lastCandle.low?.units || lastCandle.low || 0);
+    const avgVolume = candles.reduce((s: number, c: any) => s + Number(c.volume || 0), 0) / candles.length;
+    const volumeSpike = Number(lastCandle.volume) > avgVolume * 1.5;
+
+    if (percentInside > 70) return 'BALANCE';
+    if (volumeSpike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT';
+    if (high > profile.valueAreaHigh) return 'TREND_UP';
+    if (low < profile.valueAreaLow) return 'TREND_DOWN';
+    return 'CHOP';
+  };
+
+  const phaseMap = new Map<string, string[]>();
 
   for (const uid of instruments) {
     try {
-      const phase = await detector.detectPhase(uid, process.env.TReadOnly || '');
-      phaseMap.set(uid, phase);
-    } catch { phaseMap.set(uid, MarketPhase.CHOP); }
+      const days: string[] = [];
+      const current = new Date(dateFrom + 'T00:00:00Z');
+      const end = new Date(dateTo + 'T00:00:00Z');
+
+      while (current <= end) {
+        const dateStr = current.toISOString().split('T')[0];
+        const dayStart = new Date(dateStr + 'T07:00:00Z');
+        const dayEnd = new Date(dateStr + 'T16:00:00Z');
+
+        const candles = await loader.loadIntradayCandles(
+          uid, dayStart, dayEnd, process.env.TReadOnly || '', CandleInterval.CANDLE_INTERVAL_HOUR
+        );
+        const eng = new VolumeProfileEngine({ skipAutoSubscribe: true });
+        candles.forEach(c => eng.feedCandle(c));
+        const profile = eng.getProfile(uid);
+        const phase = detectDayPhase(candles, profile);
+        days.push(phase);
+
+        current.setDate(current.getDate() + 1);
+      }
+      phaseMap.set(uid, days);
+    } catch { phaseMap.set(uid, []); }
   }
 
   // Создаём задачи для каждого инструмента
@@ -766,7 +803,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
         interval,
         strategy,
         params: { ...params, ...combo },
-        marketPhase: phaseMap.get(uid),   // ← добавляем фазу
+        marketPhases: phaseMap.get(uid),   // ← добавляем фазу
         status: 'pending'
       });
     }
@@ -798,11 +835,15 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
 
   if (!tasks) return res.status(404).json({ error: 'No tasks found' });
 
-  // Явно приводим batch к нужному типу, чтобы избежать ошибки SelectQueryError
   const commonParams: any = (batch as any)?.params || {};
 
   const results = tasks.map((t: any) => {
     const stats = t.result?.portfolio || t.result || {};
+    // Распределение фаз
+    const phases: string[] = t.market_phases || [];
+    const distribution: Record<string, number> = {};
+    phases.forEach((p: string) => { distribution[p] = (distribution[p] || 0) + 1; });
+
     return {
       taskId: t.id,
       instrumentUid: t.instrument_uid,
@@ -812,7 +853,7 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
       winRate: stats.winRate,
       maxDrawdown: stats.maxDrawdown,
       error: t.error,
-      marketPhase: t.market_phase,   // ← добавлено
+      phaseDistribution: distribution,
       dateFrom: commonParams.dateFrom,
       dateTo: commonParams.dateTo,
       strategy: commonParams.strategy,
