@@ -1,6 +1,4 @@
-
 // index.ts
-
 import cors from 'cors';
 import { exec } from 'child_process';
 
@@ -744,13 +742,13 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
   const detectDayPhase = (candles: any[], profile: any): string => {
     if (!profile || candles.length < 5) return 'CHOP';
     const insideVA = candles.filter((c: any) => {
-      const close = Number(c.close?.units || c.close || 0);
+      const close = Number(c.close || 0);   // числовое поле
       return close >= profile.valueAreaLow && close <= profile.valueAreaHigh;
     }).length;
     const percentInside = (insideVA / candles.length) * 100;
     const lastCandle = candles[candles.length - 1];
-    const high = Number(lastCandle.high?.units || lastCandle.high || 0);
-    const low = Number(lastCandle.low?.units || lastCandle.low || 0);
+    const high = Number(lastCandle.high || 0);
+    const low = Number(lastCandle.low || 0);
     const avgVolume = candles.reduce((s: number, c: any) => s + Number(c.volume || 0), 0) / candles.length;
     const volumeSpike = Number(lastCandle.volume) > avgVolume * 1.5;
 
