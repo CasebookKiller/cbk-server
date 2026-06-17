@@ -631,6 +631,7 @@ const loader = new HistoricalDataLoader();
 const backtestQueue = new BacktestQueue(loader);
 
 app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
+  console.log('>>> BATCH HANDLER ENTERED <<<');
   const loader = new HistoricalDataLoader();
   console.log('[BATCH] Loader created');
   const user = (req as any).user;
