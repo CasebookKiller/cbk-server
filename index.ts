@@ -696,9 +696,8 @@ app.get('/api/backtest/results/:taskId', verifyToken, (req: Request, res: Respon
 // POST /api/backtest/batch – создаёт batch-прогон
 app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
   const user = (req as any).user;
-  const { 
+  const {
     instruments, dateFrom, dateTo, interval, strategy, params,
-    // поля сетки
     slMin, slMax, slStep,
     tpMin, tpMax, tpStep,
     trailMin, trailMax, trailStep,
@@ -713,7 +712,6 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
 
   const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
 
-  // Сохраняем batch в Supabase
   await (SBase.from('backtest_batches') as any).insert({
     id: batchId,
     user_id: user.id,
@@ -721,9 +719,8 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
     status: 'pending'
   });
 
-  // Создаём задачи для каждого инструмента
-  // Если задана сетка – генерируем комбинации, иначе используем одну комбинацию из params
-  const useGrid = slMin !== undefined; // или явный флаг, можно добавить от клиента
+  // Генерация комбинаций параметров (сетка или одна комбинация)
+  const useGrid = slMin !== undefined;
   let combos: any[];
   if (useGrid) {
     combos = generateParamGrid(
@@ -735,42 +732,42 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
       volPeriodMin !== undefined ? [volPeriodMin, volPeriodMax, volPeriodStep] : undefined
     );
   } else {
-    combos = [params]; // исходные параметры, уже содержат volumeFilterEnabled/Period
+    combos = [params];
   }
 
-  // Простой детектор фазы по дневным свечам
+  // ===== Определение фаз рынка для каждого инструмента =====
   const detectDayPhase = (candles: any[], profile: any): string => {
     if (!profile || candles.length < 5) return 'CHOP';
     const insideVA = candles.filter((c: any) => {
-      const close = Number(c.close || 0);   // числовое поле
+      const close = Number(c.close || 0);
       return close >= profile.valueAreaLow && close <= profile.valueAreaHigh;
     }).length;
     const percentInside = (insideVA / candles.length) * 100;
-    const lastCandle = candles[candles.length - 1];
-    const high = Number(lastCandle.high || 0);
-    const low = Number(lastCandle.low || 0);
-    const avgVolume = candles.reduce((s: number, c: any) => s + Number(c.volume || 0), 0) / candles.length;
-    const volumeSpike = Number(lastCandle.volume) > avgVolume * 1.5;
+    const last = candles[candles.length - 1];
+    const high = Number(last.high || 0);
+    const low = Number(last.low || 0);
+    const avgVol = candles.reduce((s: number, c: any) => s + Number(c.volume || 0), 0) / candles.length;
+    const spike = Number(last.volume) > avgVol * 1.5;
 
     if (percentInside > 70) return 'BALANCE';
-    if (volumeSpike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT';
+    if (spike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT';
     if (high > profile.valueAreaHigh) return 'TREND_UP';
     if (low < profile.valueAreaLow) return 'TREND_DOWN';
     return 'CHOP';
   };
 
   const phaseMap = new Map<string, string[]>();
-  console.log('[BATCH] Starting phase detection for instruments:', instruments);
-  console.log('Phase map:', JSON.stringify([...phaseMap]));
-  
+  console.log('[BATCH] Detecting phases for', instruments.length, 'instruments');
+
   for (const uid of instruments) {
     try {
+      console.log('[BATCH] Processing', uid);
       const days: string[] = [];
-      const current = new Date(dateFrom + 'T00:00:00Z');
+      const cur = new Date(dateFrom + 'T00:00:00Z');
       const end = new Date(dateTo + 'T00:00:00Z');
 
-      while (current <= end) {
-        const dateStr = current.toISOString().split('T')[0];
+      while (cur <= end) {
+        const dateStr = cur.toISOString().split('T')[0];
         const dayStart = new Date(dateStr + 'T07:00:00Z');
         const dayEnd = new Date(dateStr + 'T16:00:00Z');
 
@@ -781,24 +778,23 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
         candles.forEach(c => eng.feedCandle(c));
         const profile = eng.getProfile(uid);
         const phase = detectDayPhase(candles, profile);
-        console.log(`Phase for ${uid} on ${dateStr}: ${phase}`);
         days.push(phase);
-        
-        current.setDate(current.getDate() + 1);
+        cur.setDate(cur.getDate() + 1);
       }
+      console.log(`[BATCH] ${uid}: ${days.length} days, first 3: ${days.slice(0,3).join(',')}`);
       phaseMap.set(uid, days);
-      console.log(`[BATCH] Phases for ${uid}: ${days.length} days, sample: ${days.slice(0,3).join(',')}`);
     } catch (e) {
-      console.error(`Failed to compute phases for ${uid}:`, e);
+      console.error(`[BATCH] Phase detection failed for ${uid}:`, e);
       phaseMap.set(uid, []);
     }
   }
 
-  // Создаём задачи для каждого инструмента
+  // ===== Создание задач =====
+  console.log('[BATCH] Creating tasks...');
   for (const uid of instruments) {
+    const phases = phaseMap.get(uid);
     for (const combo of combos) {
       const taskId = `${batchId}_${uid}_${Date.now()}_${Math.random().toString(36).substr(2,4)}`;
-      console.log(`[BATCH] Adding task ${taskId} with marketPhases:`, JSON.stringify(phaseMap.get(uid)));
       backtestQueue.addTask({
         taskId,
         batchId,
@@ -809,16 +805,16 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
         interval,
         strategy,
         params: { ...params, ...combo },
-        marketPhases: phaseMap.get(uid),   // ← добавляем фазу
+        marketPhases: phases,
         status: 'pending'
       });
     }
   }
 
-  // Обновим статус batch'а на running
   await (SBase.from('backtest_batches') as any).update({ status: 'running' }).eq('id', batchId);
 
   const totalTasks = instruments.length * combos.length;
+  console.log(`[BATCH] Batch ${batchId} created with ${totalTasks} tasks`);
   res.status(202).json({ batchId, status: 'running', tasks: totalTasks });
 });
 
