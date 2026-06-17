@@ -762,6 +762,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
   };
 
   const phaseMap = new Map<string, string[]>();
+  console.log('[BATCH] Starting phase detection for instruments:', instruments);
   console.log('Phase map:', JSON.stringify([...phaseMap]));
   
   for (const uid of instruments) {
@@ -788,6 +789,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
         current.setDate(current.getDate() + 1);
       }
       phaseMap.set(uid, days);
+      console.log(`[BATCH] Phases for ${uid}: ${days.length} days, sample: ${days.slice(0,3).join(',')}`);
     } catch (e) {
       console.error(`Failed to compute phases for ${uid}:`, e);
       phaseMap.set(uid, []);
@@ -798,6 +800,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
   for (const uid of instruments) {
     for (const combo of combos) {
       const taskId = `${batchId}_${uid}_${Date.now()}_${Math.random().toString(36).substr(2,4)}`;
+      console.log(`[BATCH] Adding task ${taskId} with marketPhases:`, JSON.stringify(phaseMap.get(uid)));
       backtestQueue.addTask({
         taskId,
         batchId,
