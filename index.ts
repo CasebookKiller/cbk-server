@@ -788,7 +788,10 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
         current.setDate(current.getDate() + 1);
       }
       phaseMap.set(uid, days);
-    } catch { phaseMap.set(uid, []); }
+    } catch (e) {
+      console.error(`Failed to compute phases for ${uid}:`, e);
+      phaseMap.set(uid, []);
+    }
   }
 
   // Создаём задачи для каждого инструмента
