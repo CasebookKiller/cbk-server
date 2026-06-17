@@ -694,6 +694,11 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
   };
 
   const phaseMap = new Map<string, string[]>();
+  for (const uid of instruments) {
+    phaseMap.set(uid, ['TEST_PHASE']);
+    console.log(`[BATCH] Set test phase for ${uid}`);
+  }
+  /*const phaseMap = new Map<string, string[]>();
   console.log('[BATCH] Detecting phases for', instruments.length, 'instruments');
 
   for (const uid of instruments) {
@@ -725,6 +730,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
       phaseMap.set(uid, []);
     }
   }
+  */
 
   console.log('[BATCH] Creating tasks...');
   for (const uid of instruments) {
