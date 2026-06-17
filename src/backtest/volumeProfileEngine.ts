@@ -1,7 +1,7 @@
 // src/main/services/volumeProfileEngine.ts
 import { EventEmitter } from 'events';
 import type { StreamCandle, Quotation } from './types';
-import { StreamTrade } from '@/generated/tbank/marketdataStreamTypes';
+import { StreamTrade } from '../generated/tbank/marketdataStreamTypes';
 
 
 // Вспомогательная функция: Quotation → число
