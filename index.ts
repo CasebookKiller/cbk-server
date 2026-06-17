@@ -762,7 +762,8 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
   };
 
   const phaseMap = new Map<string, string[]>();
-
+  console.log('Phase map:', JSON.stringify([...phaseMap]));
+  
   for (const uid of instruments) {
     try {
       const days: string[] = [];
@@ -781,8 +782,9 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
         candles.forEach(c => eng.feedCandle(c));
         const profile = eng.getProfile(uid);
         const phase = detectDayPhase(candles, profile);
+        console.log(`Phase for ${uid} on ${dateStr}: ${phase}`);
         days.push(phase);
-
+        
         current.setDate(current.getDate() + 1);
       }
       phaseMap.set(uid, days);

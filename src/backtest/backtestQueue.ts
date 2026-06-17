@@ -95,7 +95,6 @@ export class BacktestQueue {
         interval: task.interval,
         strategy: task.strategy,
         params: task.params,
-        //market_phase: task.marketPhase || null,
         market_phases: task.marketPhases || null,
         status: 'pending'
       } as any);
