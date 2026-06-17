@@ -796,7 +796,7 @@ app.get('/api/backtest/results/:taskId', verifyToken, (req: Request, res: Respon
 // ---- Облачный фермер ----
 
 // POST /api/backtest/batch – создаёт batch-прогон
-app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
+/*app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
   const user = (req as any).user;
   const {
     instruments, dateFrom, dateTo, interval, strategy, params,
@@ -918,7 +918,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
   const totalTasks = instruments.length * combos.length;
   console.log(`[BATCH] Batch ${batchId} created with ${totalTasks} tasks`);
   res.status(202).json({ batchId, status: 'running', tasks: totalTasks });
-});
+});*/
 
 // GET /api/backtest/batch/:batchId – статус batch'а и список задач
 app.get('/api/backtest/batch/:batchId', verifyToken, async (req: Request, res: Response) => {
