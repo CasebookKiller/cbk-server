@@ -118,9 +118,7 @@ export class HistoricalDataLoader {
 
           const response = await marketDataGrpc.getCandles(request, token);
           const candles = response.candles || [];
-          if (candles.length > 0) {
-            console.log('First candle from API:', JSON.stringify(candles[0]));
-          }
+
           dayCandles = candles.map(candle => ({
             instrumentUid,
             open: quotationToNumber(candle.open),
