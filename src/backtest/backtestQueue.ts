@@ -126,6 +126,7 @@ export class BacktestQueue {
 
   private async runTask(task: Task): Promise<void> {
     task.status = 'running';
+    console.log('Task params:', JSON.stringify(task.params));
     await this.updateTaskInSupabase(task);
     try {
       const allSignals: any[] = [];
