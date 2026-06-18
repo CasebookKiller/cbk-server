@@ -166,6 +166,7 @@ export class BacktestQueue {
           const strategy = createStrategy(task.strategy, task.instrumentUid, profile);
           console.log(`[DEBUG] Profile VAH=${profile?.valueAreaHigh}, VAL=${profile?.valueAreaLow}, POC=${profile?.poc}`);
           console.log(`Feeding ${candles.length} candles to strategy`);
+          strategy.updateProfile(profile);   // сброс hasPosition для нового дня
           for (const candle of candles) {
             const high = quotationToNumber(candle.high);
             const low = quotationToNumber(candle.low);
