@@ -798,24 +798,45 @@ app.post('/api/backtest/batch', async (req: Request, res: Response) => {   // у
 
   // Новый детектор фазы по методу Trader Dale
   const detectDayPhase = (candles: any[], profile: any): string => {
-    if (!profile || candles.length < 5) return 'CHOP';
-
+    // Проверки на валидность профиля
+    if (!profile || !profile.poc || profile.poc <= 0 || candles.length < 3) {
+      console.log(`[PHASE] Invalid profile or not enough candles`);
+      return 'CHOP';
+    }
     const totalVolume = candles.reduce((s, c) => s + Number(c.volume || 0), 0);
+    if (totalVolume === 0) return 'CHOP';
+
+    // VWAP
     const vwap = candles.reduce((s, c) => s + (Number(c.high) + Number(c.low) + Number(c.close)) / 3 * Number(c.volume), 0) / totalVolume;
-    const insideVA = candles.filter(c => Number(c.close || 0) >= profile.valueAreaLow && Number(c.close || 0) <= profile.valueAreaHigh).length;
+
+    // Процент внутри VA
+    const insideVA = candles.filter(c => {
+      const close = Number(c.close || 0);
+      return close >= profile.valueAreaLow && close <= profile.valueAreaHigh;
+    }).length;
     const percentInside = (insideVA / candles.length) * 100;
+
+    // Последняя свеча
     const last = candles[candles.length - 1];
     const high = Number(last.high || 0);
     const low = Number(last.low || 0);
     const avgVol = totalVolume / candles.length;
     const spike = Number(last.volume) > avgVol * 1.5;
+
+    // Ширина VA в % от POC
     const vaWidth = ((profile.valueAreaHigh - profile.valueAreaLow) / profile.poc) * 100;
+
+    // Тренд по VWAP (избегаем NaN)
     const firstClose = Number(candles[0].close || 0);
     const lastClose = Number(last.close || 0);
-    const vwapTrend = ((lastClose - firstClose) / firstClose) * 100;
+    let vwapTrend = 0;
+    if (firstClose > 0) {
+      vwapTrend = ((lastClose - firstClose) / firstClose) * 100;
+    }
 
-    console.log(`[PHASE] ${candles[0].time} metrics: %inside=${percentInside.toFixed(1)} width=${vaWidth.toFixed(1)} trend=${vwapTrend.toFixed(2)} spike=${spike}`);
+    console.log(`[PHASE] metrics: %inside=${percentInside.toFixed(1)} width=${vaWidth.toFixed(1)} trend=${vwapTrend.toFixed(2)} spike=${spike}`);
 
+    // Определение фазы с мягкими условиями
     if (vaWidth < 5.0 && percentInside > 50) return 'BALANCE';
     if (vaWidth > 4.0 && spike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT';
     if (vwapTrend > 0.3 && high > profile.valueAreaHigh) return 'TREND_UP';
