@@ -86,7 +86,7 @@ export class HistoricalDataLoader {
         let dayCandles: StreamCandle[] | null = null;
 
         // Пытаемся прочитать из кэша (действителен 24 часа)
-        try {
+        /*try {
           if (await fs.pathExists(cacheFile)) {
             const stat = await fs.stat(cacheFile);
             const ageHours = (Date.now() - stat.mtimeMs) / 3600_000;
@@ -99,7 +99,7 @@ export class HistoricalDataLoader {
           }
         } catch (e) {
           console.error('Cache read error', dateStr, e);
-        }
+        }*/
 
         // Если нет кэша, загружаем с API
         if (!dayCandles) {
@@ -118,6 +118,9 @@ export class HistoricalDataLoader {
 
           const response = await marketDataGrpc.getCandles(request, token);
           const candles = response.candles || [];
+          if (candles.length > 0) {
+            console.log('First candle from API:', JSON.stringify(candles[0]));
+          }
           dayCandles = candles.map(candle => ({
             instrumentUid,
             open: quotationToNumber(candle.open),
@@ -129,10 +132,10 @@ export class HistoricalDataLoader {
           }));
 
           // Сохраняем в кэш асинхронно
-          const compactData = dayCandles.map(c => this.compactCandle(c));
+          /*const compactData = dayCandles.map(c => this.compactCandle(c));
           this.atomicWriteJson(cacheFile, compactData)
             .then(() => console.log(`[Cache] Saved: ${cacheFile}`))
-            .catch(e => console.error('Cache write error', dateStr, e));
+            .catch(e => console.error('Cache write error', dateStr, e));*/
         }
 
         allCandles.push(...dayCandles);
