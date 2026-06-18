@@ -797,55 +797,73 @@ app.post('/api/backtest/batch', async (req: Request, res: Response) => {   // у
   };*/
 
   // Новый детектор фазы по методу Trader Dale
-  const detectDayPhase = (candles: any[], profile: any): string => {
-    if (!profile || !profile.poc || profile.poc <= 0 || candles.length < 5) return 'CHOP';
-
-    const totalVolume = candles.reduce((s, c) => s + Number(c.volume || 0), 0);
-    if (totalVolume === 0) return 'CHOP';
+  // Простой детектор фазы без VolumeProfileEngine (напрямую по свечам)
+  const detectDayPhase = (candles: any[]): string => {
+    if (!candles || candles.length < 5) return 'CHOP';
 
     // VWAP
+    const totalVolume = candles.reduce((s, c) => s + Number(c.volume || 0), 0);
+    if (totalVolume === 0) return 'CHOP';
     const vwap = candles.reduce((s, c) => s + (Number(c.high) + Number(c.low) + Number(c.close)) / 3 * Number(c.volume), 0) / totalVolume;
 
-    // Процент внутри VA
+    // POC и Value Area (упрощённо: разбиваем диапазон на уровни)
+    const prices = candles.map(c => Number(c.close));
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const step = (maxPrice - minPrice) / 50; // 50 уровней
+    const volumeMap = new Map<number, number>();
+
+    candles.forEach(c => {
+      const close = Number(c.close);
+      const vol = Number(c.volume || 0);
+      const level = Math.round(close / step) * step;
+      volumeMap.set(level, (volumeMap.get(level) || 0) + vol);
+    });
+
+    // POC – уровень с максимальным объёмом
+    let poc = 0, maxVol = 0;
+    volumeMap.forEach((vol, price) => { if (vol > maxVol) { maxVol = vol; poc = price; } });
+
+    // Value Area (70%)
+    const sortedLevels = Array.from(volumeMap.entries()).sort((a, b) => b[1] - a[1]);
+    let vaVolume = 0, vaHigh = poc, vaLow = poc;
+    const targetVol = totalVolume * 0.7;
+    for (const [price, vol] of sortedLevels) {
+      vaVolume += vol;
+      if (price > vaHigh) vaHigh = price;
+      if (price < vaLow) vaLow = price;
+      if (vaVolume >= targetVol) break;
+    }
+
+    const vaWidth = poc > 0 ? ((vaHigh - vaLow) / poc) * 100 : 0;
     const insideVA = candles.filter(c => {
-      const close = Number(c.close || 0);
-      return close >= profile.valueAreaLow && close <= profile.valueAreaHigh;
+      const close = Number(c.close);
+      return close >= vaLow && close <= vaHigh;
     }).length;
     const percentInside = (insideVA / candles.length) * 100;
 
-    // Последняя свеча
     const last = candles[candles.length - 1];
-    const high = Number(last.high || 0);
-    const low = Number(last.low || 0);
-    const close = Number(last.close || 0);
+    const close = Number(last.close);
+    const high = Number(last.high);
+    const low = Number(last.low);
     const avgVol = totalVolume / candles.length;
     const spike = Number(last.volume) > avgVol * 1.5;
+    const vwapTrend = vwap > 0 ? ((close - vwap) / vwap) * 100 : 0;
 
-    // Ширина VA в % от POC
-    const vaWidth = ((profile.valueAreaHigh - profile.valueAreaLow) / profile.poc) * 100;
+    console.log(`[PHASE] close=${close} vwap=${vwap.toFixed(2)} %inside=${percentInside.toFixed(1)} width=${vaWidth.toFixed(1)} trend=${vwapTrend.toFixed(2)} spike=${spike}`);
 
-    // Тренд: используем VWAP
-    let vwapTrend = 0;
-    if (vwap > 0) {
-      vwapTrend = ((close - vwap) / vwap) * 100; // отклонение последней цены от VWAP в %
-    }
-
-    console.log(`[PHASE] close=${close} vwap=${vwap.toFixed(2)} %inside=${percentInside.toFixed(1)} width=${vaWidth.toFixed(1)} vwapTrend=${vwapTrend.toFixed(2)} spike=${spike}`);
-
-    // Определение фазы с использованием VWAP
     if (vaWidth < 5.0 && percentInside > 50) return 'BALANCE';
-    if (vaWidth > 4.0 && spike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT';
-    if (vwapTrend > 0.5 && close > profile.valueAreaHigh) return 'TREND_UP';   // цена выше VWAP и выше VAH
-    if (vwapTrend < -0.5 && close < profile.valueAreaLow) return 'TREND_DOWN'; // цена ниже VWAP и ниже VAL
+    if (vaWidth > 4.0 && spike && (high > vaHigh || low < vaLow)) return 'BREAKOUT';
+    if (vwapTrend > 0.5 && close > vaHigh) return 'TREND_UP';
+    if (vwapTrend < -0.5 && close < vaLow) return 'TREND_DOWN';
     return 'CHOP';
   };
 
-  const phaseMap = new Map<string, string[]>();
+  const phaseMap = new Map<string, string>();
   console.log('[BATCH] Detecting phases for', instruments.length, 'instruments');
 
   for (const uid of instruments) {
     try {
-      console.log('[BATCH] Processing', uid);
       const days: string[] = [];
       const cur = new Date(dateFrom + 'T00:00:00Z');
       const end = new Date(dateTo + 'T00:00:00Z');
@@ -858,20 +876,20 @@ app.post('/api/backtest/batch', async (req: Request, res: Response) => {   // у
         const candles = await loader.loadIntradayCandles(
           uid, dayStart, dayEnd, process.env.TReadOnly || '', CandleInterval.CANDLE_INTERVAL_5_MIN
         );
-        const eng = new VolumeProfileEngine({ skipAutoSubscribe: true });
-        candles.forEach(c => eng.feedCandle(c));
-        const profile = eng.getProfile(uid);
-        const phase = detectDayPhase(candles, profile);
+        const phase = detectDayPhase(candles);
         days.push(phase);
-        console.log(`[BATCH] ${dateStr}: ${phase}`);   // <-- лог для контроля
+        console.log(`[BATCH] ${dateStr}: ${phase}`);
         cur.setDate(cur.getDate() + 1);
-        await new Promise(resolve => setTimeout(resolve, 200)); // пауза 200 мс между днями
       }
-      console.log(`[BATCH] ${uid}: ${days.length} days, first 3: ${days.slice(0,3).join(',')}`);
-      phaseMap.set(uid, days);
+      // Определяем доминирующую фазу
+      const domPhase = days.sort((a,b) =>
+        days.filter(v => v===a).length - days.filter(v => v===b).length
+      ).pop() || 'CHOP';
+      phaseMap.set(uid, domPhase);
+      console.log(`[BATCH] ${uid}: dominant phase = ${domPhase}`);
     } catch (e) {
       console.error(`[BATCH] Phase detection failed for ${uid}:`, e);
-      phaseMap.set(uid, []);
+      phaseMap.set(uid, 'CHOP');
     }
   }
 
@@ -890,7 +908,7 @@ app.post('/api/backtest/batch', async (req: Request, res: Response) => {   // у
         interval,
         strategy,
         params: { ...params, ...combo },
-        marketPhases: phases,
+        marketPhases: [phaseMap.get(uid) || 'CHOP'],
         status: 'pending'
       });
     }
