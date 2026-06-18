@@ -798,11 +798,8 @@ app.post('/api/backtest/batch', async (req: Request, res: Response) => {   // у
 
   // Новый детектор фазы по методу Trader Dale
   const detectDayPhase = (candles: any[], profile: any): string => {
-    // Проверки на валидность профиля
-    if (!profile || !profile.poc || profile.poc <= 0 || candles.length < 3) {
-      console.log(`[PHASE] Invalid profile or not enough candles`);
-      return 'CHOP';
-    }
+    if (!profile || !profile.poc || profile.poc <= 0 || candles.length < 5) return 'CHOP';
+
     const totalVolume = candles.reduce((s, c) => s + Number(c.volume || 0), 0);
     if (totalVolume === 0) return 'CHOP';
 
@@ -820,27 +817,26 @@ app.post('/api/backtest/batch', async (req: Request, res: Response) => {   // у
     const last = candles[candles.length - 1];
     const high = Number(last.high || 0);
     const low = Number(last.low || 0);
+    const close = Number(last.close || 0);
     const avgVol = totalVolume / candles.length;
     const spike = Number(last.volume) > avgVol * 1.5;
 
     // Ширина VA в % от POC
     const vaWidth = ((profile.valueAreaHigh - profile.valueAreaLow) / profile.poc) * 100;
 
-    // Тренд по VWAP (избегаем NaN)
-    const firstClose = Number(candles[0].close || 0);
-    const lastClose = Number(last.close || 0);
+    // Тренд: используем VWAP
     let vwapTrend = 0;
-    if (firstClose > 0) {
-      vwapTrend = ((lastClose - firstClose) / firstClose) * 100;
+    if (vwap > 0) {
+      vwapTrend = ((close - vwap) / vwap) * 100; // отклонение последней цены от VWAP в %
     }
 
-    console.log(`[PHASE] metrics: %inside=${percentInside.toFixed(1)} width=${vaWidth.toFixed(1)} trend=${vwapTrend.toFixed(2)} spike=${spike}`);
+    console.log(`[PHASE] close=${close} vwap=${vwap.toFixed(2)} %inside=${percentInside.toFixed(1)} width=${vaWidth.toFixed(1)} vwapTrend=${vwapTrend.toFixed(2)} spike=${spike}`);
 
-    // Определение фазы с мягкими условиями
+    // Определение фазы с использованием VWAP
     if (vaWidth < 5.0 && percentInside > 50) return 'BALANCE';
     if (vaWidth > 4.0 && spike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT';
-    if (vwapTrend > 0.3 && high > profile.valueAreaHigh) return 'TREND_UP';
-    if (vwapTrend < -0.3 && low < profile.valueAreaLow) return 'TREND_DOWN';
+    if (vwapTrend > 0.5 && close > profile.valueAreaHigh) return 'TREND_UP';   // цена выше VWAP и выше VAH
+    if (vwapTrend < -0.5 && close < profile.valueAreaLow) return 'TREND_DOWN'; // цена ниже VWAP и ниже VAL
     return 'CHOP';
   };
 
@@ -860,7 +856,7 @@ app.post('/api/backtest/batch', async (req: Request, res: Response) => {   // у
         const dayEnd = new Date(dateStr + 'T16:00:00Z');
 
         const candles = await loader.loadIntradayCandles(
-          uid, dayStart, dayEnd, process.env.TReadOnly || '', CandleInterval.CANDLE_INTERVAL_HOUR
+          uid, dayStart, dayEnd, process.env.TReadOnly || '', CandleInterval.CANDLE_INTERVAL_5_MIN
         );
         const eng = new VolumeProfileEngine({ skipAutoSubscribe: true });
         candles.forEach(c => eng.feedCandle(c));
@@ -869,6 +865,7 @@ app.post('/api/backtest/batch', async (req: Request, res: Response) => {   // у
         days.push(phase);
         console.log(`[BATCH] ${dateStr}: ${phase}`);   // <-- лог для контроля
         cur.setDate(cur.getDate() + 1);
+        await new Promise(resolve => setTimeout(resolve, 200)); // пауза 200 мс между днями
       }
       console.log(`[BATCH] ${uid}: ${days.length} days, first 3: ${days.slice(0,3).join(',')}`);
       phaseMap.set(uid, days);
