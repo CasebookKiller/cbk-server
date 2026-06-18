@@ -148,6 +148,10 @@ function range(min: number, max: number, step: number): number[] {
 const app: Express = express();
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+  console.log(`[REQ] ${req.method} ${req.path}`);
+  next();
+});
 
 app.get('/', (req: Request, res: Response) => {
   res.send('Запущен сервер на Typescript...')
