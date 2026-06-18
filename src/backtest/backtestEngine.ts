@@ -1,11 +1,8 @@
-// src/backtest/backtestEngine.ts
-// Версия для сервера cbk-server (без зависимостей от Electron)
-
-import type { StreamCandle } from './types';                // локальный тип
+import type { StreamCandle } from './types';
 import { VirtualPortfolio, type PortfolioStats, type PortfolioConfig } from './virtualPortfolio';
 import { quotationToNumber } from './common';
 import type { BacktestSignal } from './common';
-import { VolumeProfileLevels } from './volumeProfileEngine';   // лежит в одной папке
+import { VolumeProfileLevels } from './volumeProfileEngine';
 
 export interface BacktestStats {
   totalSignals: number;
@@ -57,7 +54,7 @@ export class BacktestEngine {
     const lastClose = quotationToNumber(lastCandle.close);
     portfolio.finalizeWithLastPrice(lastClose, lastCandle.time || '');
 
-    const signals = strategy.getSignals(); // после очистки будет пусто
+    const signals = strategy.getSignals();
     const buy = signals.filter(s => s.type === 'BUY').length;
     const sell = signals.filter(s => s.type === 'SELL').length;
 
