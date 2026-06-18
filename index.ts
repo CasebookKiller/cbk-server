@@ -774,7 +774,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
   }
 
   // Реальный детектор фазы по дневным свечам
-  const detectDayPhase = (candles: any[], profile: any): string => {
+  /*const detectDayPhase = (candles: any[], profile: any): string => {
     if (!profile || candles.length < 5) return 'CHOP';
     const insideVA = candles.filter((c: any) => {
       const close = Number(c.close || 0);
@@ -791,6 +791,48 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
     if (spike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT';
     if (high > profile.valueAreaHigh) return 'TREND_UP';
     if (low < profile.valueAreaLow) return 'TREND_DOWN';
+    return 'CHOP';
+  };*/
+
+  // Новый детектор фазы по методу Trader Dale
+  const detectDayPhase = (candles: any[], profile: any): string => {
+    if (!profile || candles.length < 5) return 'CHOP';
+
+    // 1. Считаем VWAP
+    const totalVolume = candles.reduce((s: number, c: any) => s + Number(c.volume || 0), 0);
+    const vwap = candles.reduce(
+      (s: number, c: any) =>
+        s + (Number(c.high) + Number(c.low) + Number(c.close)) / 3 * Number(c.volume),
+      0
+    ) / totalVolume;
+
+    // 2. Процент времени внутри Value Area
+    const insideVA = candles.filter((c: any) => {
+      const close = Number(c.close || 0);
+      return close >= profile.valueAreaLow && close <= profile.valueAreaHigh;
+    }).length;
+    const percentInside = (insideVA / candles.length) * 100;
+
+    // 3. Последняя свеча и всплеск объёма
+    const last = candles[candles.length - 1];
+    const high = Number(last.high || 0);
+    const low = Number(last.low || 0);
+    const avgVol = totalVolume / candles.length;
+    const volumeSpike = Number(last.volume) > avgVol * 1.5;
+
+    // 4. Ширина VA в процентах от POC
+    const vaWidth = ((profile.valueAreaHigh - profile.valueAreaLow) / profile.poc) * 100;
+
+    // 5. Наклон тренда по VWAP (изменение относительно VWAP)
+    const firstClose = Number(candles[0].close || 0);
+    const lastClose = Number(last.close || 0);
+    const vwapTrend = ((lastClose - firstClose) / firstClose) * 100;
+
+    // 6. Определение фазы
+    if (vaWidth < 3.0 && percentInside > 65) return 'BALANCE';
+    if (vaWidth > 5.0 && volumeSpike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT';
+    if (vwapTrend > 0.5 && high > profile.valueAreaHigh) return 'TREND_UP';
+    if (vwapTrend < -0.5 && low < profile.valueAreaLow) return 'TREND_DOWN';
     return 'CHOP';
   };
 
