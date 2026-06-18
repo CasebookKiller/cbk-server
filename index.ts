@@ -1,4 +1,6 @@
+
 // index.ts
+
 import cors from 'cors';
 import { exec } from 'child_process';
 
@@ -28,9 +30,6 @@ import { createSdk } from './api/t-invest-sdk/sdk';
 
 import { ScreenerService } from './src/backtest/screenerService';
 import { instrumentsGrpc } from './src/services/tbank/InstrumentsGrpcService'; 
-import { MarketPhase, MarketPhaseDetector } from './src/backtest/marketPhaseDetector';
-import { VolumeProfileEngine } from './src/backtest/volumeProfileEngine';
-import { CandleInterval } from './src/generated/marketdataTypes';
 
 // создать клиента с заданным токеном доступа
 //const api = new TinkoffInvestApi({ token: TOKEN });
@@ -148,10 +147,6 @@ function range(min: number, max: number, step: number): number[] {
 const app: Express = express();
 app.use(cors());
 app.use(express.json());
-app.use((req, res, next) => {
-  console.log(`[REQ] ${req.method} ${req.path}`);
-  next();
-});
 
 app.get('/', (req: Request, res: Response) => {
   res.send('Запущен сервер на Typescript...')
@@ -634,292 +629,27 @@ app.post('/getbondevents', async (req: Request, res: Response) => {
 const loader = new HistoricalDataLoader();
 const backtestQueue = new BacktestQueue(loader);
 
-//app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
-/*app.post('/api/backtest/batch', async (req: Request, res: Response) => {
-  console.log('>>> BATCH HANDLER ENTERED <<<');
-  const loader = new HistoricalDataLoader();
-  console.log('[BATCH] Loader created');
+app.post('/api/backtest/tasks', verifyToken, async (req: Request, res: Response) => {
   const user = (req as any).user;
-  const { 
-    instruments, dateFrom, dateTo, interval, strategy, params,
-    slMin, slMax, slStep,
-    tpMin, tpMax, tpStep,
-    trailMin, trailMax, trailStep,
-    lotsMin, lotsMax, lotsStep,
-    riskMin, riskMax, riskStep,
-    volPeriodMin, volPeriodMax, volPeriodStep
-  } = req.body;
+  const { instrumentUid, dateFrom, dateTo, interval, strategy, params } = req.body;
+  console.log('Received task:', { instrumentUid, dateFrom, dateTo, strategy });
+  const token = process.env.TReadOnly || '';
+  const taskId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-  if (!instruments || !Array.isArray(instruments) || instruments.length === 0) {
-    return res.status(400).json({ error: 'instruments array is required' });
-  }
-
-  const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
-
-  await (SBase.from('backtest_batches') as any).insert({
-    id: batchId,
-    user_id: user.id,
-    params: { instruments, dateFrom, dateTo, interval, strategy, params },
+  backtestQueue.addTask({
+    taskId,
+    userId: user.id,
+    instrumentUid,
+    dateFrom,
+    dateTo,
+    interval,
+    strategy,         // ← важно!
+    params,
     status: 'pending'
   });
 
-  const useGrid = slMin !== undefined;
-  let combos: any[];
-  if (useGrid) {
-    combos = generateParamGrid(
-      slMin !== undefined ? [slMin, slMax, slStep] : undefined,
-      tpMin !== undefined ? [tpMin, tpMax, tpStep] : undefined,
-      trailMin !== undefined ? [trailMin, trailMax, trailStep] : undefined,
-      lotsMin !== undefined ? [lotsMin, lotsMax, lotsStep] : undefined,
-      riskMin !== undefined ? [riskMin, riskMax, riskStep] : undefined,
-      volPeriodMin !== undefined ? [volPeriodMin, volPeriodMax, volPeriodStep] : undefined
-    );
-  } else {
-    combos = [params];
-  }
-
-  const detectDayPhase = (candles: any[], profile: any): string => {
-    if (!profile || candles.length < 5) return 'CHOP';
-    const insideVA = candles.filter((c: any) => {
-      const close = Number(c.close || 0);
-      return close >= profile.valueAreaLow && close <= profile.valueAreaHigh;
-    }).length;
-    const percentInside = (insideVA / candles.length) * 100;
-    const last = candles[candles.length - 1];
-    const high = Number(last.high || 0);
-    const low = Number(last.low || 0);
-    const avgVol = candles.reduce((s: number, c: any) => s + Number(c.volume || 0), 0) / candles.length;
-    const spike = Number(last.volume) > avgVol * 1.5;
-
-    if (percentInside > 70) return 'BALANCE';
-    if (spike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT';
-    if (high > profile.valueAreaHigh) return 'TREND_UP';
-    if (low < profile.valueAreaLow) return 'TREND_DOWN';
-    return 'CHOP';
-  };
-
-  const phaseMap = new Map<string, string[]>();
-  for (const uid of instruments) {
-    phaseMap.set(uid, ['TEST_PHASE']);
-    console.log(`[BATCH] Set test phase for ${uid}`);
-  }
-  
-  console.log('[BATCH] Creating tasks...');
-  for (const uid of instruments) {
-    const phases = phaseMap.get(uid);
-    for (const combo of combos) {
-      const taskId = `${batchId}_${uid}_${Date.now()}_${Math.random().toString(36).substr(2,4)}`;
-      backtestQueue.addTask({
-        taskId,
-        batchId,
-        userId: user.id,
-        instrumentUid: uid,
-        dateFrom,
-        dateTo,
-        interval,
-        strategy,
-        params: { ...params, ...combo },
-        marketPhases: phases,
-        status: 'pending'
-      });
-    }
-  }
-
-  await (SBase.from('backtest_batches') as any).update({ status: 'running' }).eq('id', batchId);
-
-  const totalTasks = instruments.length * combos.length;
-  console.log(`[BATCH] Batch ${batchId} created with ${totalTasks} tasks`);
-  res.status(202).json({ batchId, status: 'running', tasks: totalTasks });
-});*/
-
-//app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
-app.post('/api/backtest/batch', async (req: Request, res: Response) => {   // убрали verifyToken
-  const user = { id: 1 };   // тестовый пользователь
-  //const user = (req as any).user;
-  console.log('>>> BATCH HANDLER ENTERED <<<');
-  const {
-    instruments, dateFrom, dateTo, interval, strategy, params,
-    slMin, slMax, slStep,
-    tpMin, tpMax, tpStep,
-    trailMin, trailMax, trailStep,
-    lotsMin, lotsMax, lotsStep,
-    riskMin, riskMax, riskStep,
-    volPeriodMin, volPeriodMax, volPeriodStep
-  } = req.body;
-
-  if (!instruments || !Array.isArray(instruments) || instruments.length === 0) {
-    return res.status(400).json({ error: 'instruments array is required' });
-  }
-
-  const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
-
-  await (SBase.from('backtest_batches') as any).insert({
-    id: batchId,
-    user_id: user.id,
-    params: { instruments, dateFrom, dateTo, interval, strategy, params },
-    status: 'pending'
-  });
-
-  const useGrid = slMin !== undefined;
-  let combos: any[];
-  if (useGrid) {
-    combos = generateParamGrid(
-      slMin !== undefined ? [slMin, slMax, slStep] : undefined,
-      tpMin !== undefined ? [tpMin, tpMax, tpStep] : undefined,
-      trailMin !== undefined ? [trailMin, trailMax, trailStep] : undefined,
-      lotsMin !== undefined ? [lotsMin, lotsMax, lotsStep] : undefined,
-      riskMin !== undefined ? [riskMin, riskMax, riskStep] : undefined,
-      volPeriodMin !== undefined ? [volPeriodMin, volPeriodMax, volPeriodStep] : undefined
-    );
-  } else {
-    combos = [params];
-  }
-
-  // Реальный детектор фазы по дневным свечам
-  /*const detectDayPhase = (candles: any[], profile: any): string => {
-    if (!profile || candles.length < 5) return 'CHOP';
-    const insideVA = candles.filter((c: any) => {
-      const close = Number(c.close || 0);
-      return close >= profile.valueAreaLow && close <= profile.valueAreaHigh;
-    }).length;
-    const percentInside = (insideVA / candles.length) * 100;
-    const last = candles[candles.length - 1];
-    const high = Number(last.high || 0);
-    const low = Number(last.low || 0);
-    const avgVol = candles.reduce((s: number, c: any) => s + Number(c.volume || 0), 0) / candles.length;
-    const spike = Number(last.volume) > avgVol * 1.5;
-
-    if (percentInside > 70) return 'BALANCE';
-    if (spike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT';
-    if (high > profile.valueAreaHigh) return 'TREND_UP';
-    if (low < profile.valueAreaLow) return 'TREND_DOWN';
-    return 'CHOP';
-  };*/
-
-  // Новый детектор фазы по методу Trader Dale
-  // Простой детектор фазы без VolumeProfileEngine (напрямую по свечам)
-  const detectDayPhase = (candles: any[]): string => {
-    if (!candles || candles.length < 5) return 'CHOP';
-
-    // VWAP
-    const totalVolume = candles.reduce((s, c) => s + Number(c.volume || 0), 0);
-    if (totalVolume === 0) return 'CHOP';
-    const vwap = candles.reduce((s, c) => s + (Number(c.high) + Number(c.low) + Number(c.close)) / 3 * Number(c.volume), 0) / totalVolume;
-
-    // POC и Value Area (упрощённо: разбиваем диапазон на уровни)
-    const prices = candles.map(c => Number(c.close));
-    const minPrice = Math.min(...prices);
-    const maxPrice = Math.max(...prices);
-    const step = (maxPrice - minPrice) / 50; // 50 уровней
-    const volumeMap = new Map<number, number>();
-
-    candles.forEach(c => {
-      const close = Number(c.close);
-      const vol = Number(c.volume || 0);
-      const level = Math.round(close / step) * step;
-      volumeMap.set(level, (volumeMap.get(level) || 0) + vol);
-    });
-
-    // POC – уровень с максимальным объёмом
-    let poc = 0, maxVol = 0;
-    volumeMap.forEach((vol, price) => { if (vol > maxVol) { maxVol = vol; poc = price; } });
-
-    // Value Area (70%)
-    const sortedLevels = Array.from(volumeMap.entries()).sort((a, b) => b[1] - a[1]);
-    let vaVolume = 0, vaHigh = poc, vaLow = poc;
-    const targetVol = totalVolume * 0.7;
-    for (const [price, vol] of sortedLevels) {
-      vaVolume += vol;
-      if (price > vaHigh) vaHigh = price;
-      if (price < vaLow) vaLow = price;
-      if (vaVolume >= targetVol) break;
-    }
-
-    const vaWidth = poc > 0 ? ((vaHigh - vaLow) / poc) * 100 : 0;
-    const insideVA = candles.filter(c => {
-      const close = Number(c.close);
-      return close >= vaLow && close <= vaHigh;
-    }).length;
-    const percentInside = (insideVA / candles.length) * 100;
-
-    const last = candles[candles.length - 1];
-    const close = Number(last.close);
-    const high = Number(last.high);
-    const low = Number(last.low);
-    const avgVol = totalVolume / candles.length;
-    const spike = Number(last.volume) > avgVol * 1.5;
-    const vwapTrend = vwap > 0 ? ((close - vwap) / vwap) * 100 : 0;
-
-    console.log(`[PHASE] close=${close} vwap=${vwap.toFixed(2)} %inside=${percentInside.toFixed(1)} width=${vaWidth.toFixed(1)} trend=${vwapTrend.toFixed(2)} spike=${spike}`);
-
-    if (vaWidth < 5.0 && percentInside > 50) return 'BALANCE';
-    if (vaWidth > 4.0 && spike && (high > vaHigh || low < vaLow)) return 'BREAKOUT';
-    if (vwapTrend > 0.5 && close > vaHigh) return 'TREND_UP';
-    if (vwapTrend < -0.5 && close < vaLow) return 'TREND_DOWN';
-    return 'CHOP';
-  };
-
-  const phaseMap = new Map<string, string>();
-  console.log('[BATCH] Detecting phases for', instruments.length, 'instruments');
-
-  for (const uid of instruments) {
-    try {
-      const days: string[] = [];
-      const cur = new Date(dateFrom + 'T00:00:00Z');
-      const end = new Date(dateTo + 'T00:00:00Z');
-
-      while (cur <= end) {
-        const dateStr = cur.toISOString().split('T')[0];
-        const dayStart = new Date(dateStr + 'T07:00:00Z');
-        const dayEnd = new Date(dateStr + 'T16:00:00Z');
-
-        const candles = await loader.loadIntradayCandles(
-          uid, dayStart, dayEnd, process.env.TReadOnly || '', CandleInterval.CANDLE_INTERVAL_5_MIN
-        );
-        const phase = detectDayPhase(candles);
-        days.push(phase);
-        console.log(`[BATCH] ${dateStr}: ${phase}`);
-        cur.setDate(cur.getDate() + 1);
-      }
-      // Определяем доминирующую фазу
-      const domPhase = days.sort((a,b) =>
-        days.filter(v => v===a).length - days.filter(v => v===b).length
-      ).pop() || 'CHOP';
-      phaseMap.set(uid, domPhase);
-      console.log(`[BATCH] ${uid}: dominant phase = ${domPhase}`);
-    } catch (e) {
-      console.error(`[BATCH] Phase detection failed for ${uid}:`, e);
-      phaseMap.set(uid, 'CHOP');
-    }
-  }
-
-  console.log('[BATCH] Creating tasks...');
-  for (const uid of instruments) {
-    const phases = phaseMap.get(uid);
-    for (const combo of combos) {
-      const taskId = `${batchId}_${uid}_${Date.now()}_${Math.random().toString(36).substr(2,4)}`;
-      backtestQueue.addTask({
-        taskId,
-        batchId,
-        userId: user.id,
-        instrumentUid: uid,
-        dateFrom,
-        dateTo,
-        interval,
-        strategy,
-        params: { ...params, ...combo },
-        marketPhases: [phaseMap.get(uid) || 'CHOP'],
-        status: 'pending'
-      });
-    }
-  }
-
-  await (SBase.from('backtest_batches') as any).update({ status: 'running' }).eq('id', batchId);
-
-  const totalTasks = instruments.length * combos.length;
-  console.log(`[BATCH] Batch ${batchId} created with ${totalTasks} tasks`);
-  res.status(202).json({ batchId, status: 'running', tasks: totalTasks });
-})
+  res.status(202).json({ taskId, status: 'pending' });
+});
 
 app.get('/api/backtest/tasks', verifyToken, (req: Request, res: Response) => {
   const user = (req as any).user;
@@ -963,10 +693,11 @@ app.get('/api/backtest/results/:taskId', verifyToken, (req: Request, res: Respon
 // ---- Облачный фермер ----
 
 // POST /api/backtest/batch – создаёт batch-прогон
-/*app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
+app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
   const user = (req as any).user;
-  const {
+  const { 
     instruments, dateFrom, dateTo, interval, strategy, params,
+    // поля сетки
     slMin, slMax, slStep,
     tpMin, tpMax, tpStep,
     trailMin, trailMax, trailStep,
@@ -981,6 +712,7 @@ app.get('/api/backtest/results/:taskId', verifyToken, (req: Request, res: Respon
 
   const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
 
+  // Сохраняем batch в Supabase
   await (SBase.from('backtest_batches') as any).insert({
     id: batchId,
     user_id: user.id,
@@ -988,8 +720,9 @@ app.get('/api/backtest/results/:taskId', verifyToken, (req: Request, res: Respon
     status: 'pending'
   });
 
-  // Генерация комбинаций параметров (сетка или одна комбинация)
-  const useGrid = slMin !== undefined;
+  // Создаём задачи для каждого инструмента
+  // Если задана сетка – генерируем комбинации, иначе используем одну комбинацию из params
+  const useGrid = slMin !== undefined; // или явный флаг, можно добавить от клиента
   let combos: any[];
   if (useGrid) {
     combos = generateParamGrid(
@@ -1001,67 +734,10 @@ app.get('/api/backtest/results/:taskId', verifyToken, (req: Request, res: Respon
       volPeriodMin !== undefined ? [volPeriodMin, volPeriodMax, volPeriodStep] : undefined
     );
   } else {
-    combos = [params];
+    combos = [params]; // исходные параметры, уже содержат volumeFilterEnabled/Period
   }
 
-  // ===== Определение фаз рынка для каждого инструмента =====
-  const detectDayPhase = (candles: any[], profile: any): string => {
-    if (!profile || candles.length < 5) return 'CHOP';
-    const insideVA = candles.filter((c: any) => {
-      const close = Number(c.close || 0);
-      return close >= profile.valueAreaLow && close <= profile.valueAreaHigh;
-    }).length;
-    const percentInside = (insideVA / candles.length) * 100;
-    const last = candles[candles.length - 1];
-    const high = Number(last.high || 0);
-    const low = Number(last.low || 0);
-    const avgVol = candles.reduce((s: number, c: any) => s + Number(c.volume || 0), 0) / candles.length;
-    const spike = Number(last.volume) > avgVol * 1.5;
-
-    if (percentInside > 70) return 'BALANCE';
-    if (spike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT';
-    if (high > profile.valueAreaHigh) return 'TREND_UP';
-    if (low < profile.valueAreaLow) return 'TREND_DOWN';
-    return 'CHOP';
-  };
-
-  const phaseMap = new Map<string, string[]>();
-  console.log('[BATCH] Detecting phases for', instruments.length, 'instruments');
-
   for (const uid of instruments) {
-    try {
-      console.log('[BATCH] Processing', uid);
-      const days: string[] = [];
-      const cur = new Date(dateFrom + 'T00:00:00Z');
-      const end = new Date(dateTo + 'T00:00:00Z');
-
-      while (cur <= end) {
-        const dateStr = cur.toISOString().split('T')[0];
-        const dayStart = new Date(dateStr + 'T07:00:00Z');
-        const dayEnd = new Date(dateStr + 'T16:00:00Z');
-
-        const candles = await loader.loadIntradayCandles(
-          uid, dayStart, dayEnd, process.env.TReadOnly || '', CandleInterval.CANDLE_INTERVAL_HOUR
-        );
-        const eng = new VolumeProfileEngine({ skipAutoSubscribe: true });
-        candles.forEach(c => eng.feedCandle(c));
-        const profile = eng.getProfile(uid);
-        const phase = detectDayPhase(candles, profile);
-        days.push(phase);
-        cur.setDate(cur.getDate() + 1);
-      }
-      console.log(`[BATCH] ${uid}: ${days.length} days, first 3: ${days.slice(0,3).join(',')}`);
-      phaseMap.set(uid, days);
-    } catch (e) {
-      console.error(`[BATCH] Phase detection failed for ${uid}:`, e);
-      phaseMap.set(uid, []);
-    }
-  }
-
-  // ===== Создание задач =====
-  console.log('[BATCH] Creating tasks...');
-  for (const uid of instruments) {
-    const phases = phaseMap.get(uid);
     for (const combo of combos) {
       const taskId = `${batchId}_${uid}_${Date.now()}_${Math.random().toString(36).substr(2,4)}`;
       backtestQueue.addTask({
@@ -1074,18 +750,16 @@ app.get('/api/backtest/results/:taskId', verifyToken, (req: Request, res: Respon
         interval,
         strategy,
         params: { ...params, ...combo },
-        marketPhases: phases,
         status: 'pending'
       });
     }
   }
 
-  await (SBase.from('backtest_batches') as any).update({ status: 'running' }).eq('id', batchId);
+  // Обновим статус batch'а на running
+  await (SBase.from('backtest_batches') as any).update({ status: 'running' }).eq('task_id', batchId);
 
-  const totalTasks = instruments.length * combos.length;
-  console.log(`[BATCH] Batch ${batchId} created with ${totalTasks} tasks`);
-  res.status(202).json({ batchId, status: 'running', tasks: totalTasks });
-});*/
+  res.status(202).json({ batchId, status: 'running', tasks: instruments.length });
+});
 
 // GET /api/backtest/batch/:batchId – статус batch'а и список задач
 app.get('/api/backtest/batch/:batchId', verifyToken, async (req: Request, res: Response) => {
@@ -1106,14 +780,11 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
 
   if (!tasks) return res.status(404).json({ error: 'No tasks found' });
 
+  // Явно приводим batch к нужному типу, чтобы избежать ошибки SelectQueryError
   const commonParams: any = (batch as any)?.params || {};
 
   const results = tasks.map((t: any) => {
     const stats = t.result?.portfolio || t.result || {};
-    const phases: string[] = t.market_phases || [];
-    const distribution: Record<string, number> = {};
-    phases.forEach((p: string) => { distribution[p] = (distribution[p] || 0) + 1; });
-
     return {
       taskId: t.id,
       instrumentUid: t.instrument_uid,
@@ -1123,8 +794,7 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
       winRate: stats.winRate,
       maxDrawdown: stats.maxDrawdown,
       error: t.error,
-      marketPhases: t.market_phases,   // ← ВОТ ЭТУ СТРОКУ ДОБАВИТЬ
-      phaseDistribution: distribution,
+      // параметры прогона
       dateFrom: commonParams.dateFrom,
       dateTo: commonParams.dateTo,
       strategy: commonParams.strategy,
@@ -1175,36 +845,6 @@ app.get('/api/screener', verifyToken, async (req: Request, res: Response) => {
     res.json(results);
   } catch (err: any) {
     console.error('Screener error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get('/api/market-phase', verifyToken, async (req: Request, res: Response) => {
-  const instrumentUid = req.query.instrument as string;
-  const token = process.env.TReadOnly || '';
-  if (!instrumentUid) return res.status(400).json({ error: 'instrument query param required' });
-
-  try {
-    const loader = new HistoricalDataLoader();
-    const now = new Date();
-    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-    const candles = await loader.loadIntradayCandles(
-      instrumentUid, twoHoursAgo, now, token, CandleInterval.CANDLE_INTERVAL_5_MIN //'CANDLE_INTERVAL_5_MIN'
-    );
-
-    const profileEngine = new VolumeProfileEngine({ skipAutoSubscribe: true });
-    candles.forEach(c => profileEngine.feedCandle(c));
-    const profile = profileEngine.getProfile(instrumentUid);
-
-    if (!profile || candles.length < 5) {
-      return res.json({ instrumentUid, phase: 'CHOP' });
-    }
-
-    const detector = new MarketPhaseDetector(loader, profileEngine);
-    const phase = await detector.detectPhase(instrumentUid, token);
-    res.json({ instrumentUid, phase });
-  } catch (err: any) {
-    console.error('Market phase error:', err);
     res.status(500).json({ error: err.message });
   }
 });

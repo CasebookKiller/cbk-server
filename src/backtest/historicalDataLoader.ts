@@ -26,7 +26,7 @@ export class HistoricalDataLoader {
 
   private compactCandle(c: StreamCandle): any {
     return {
-      o: c.open,   // уже число
+      o: c.open,
       h: c.high,
       l: c.low,
       c: c.close,
@@ -38,10 +38,10 @@ export class HistoricalDataLoader {
   private expandCandle(c: any, instrumentUid: string): StreamCandle {
     return {
       instrumentUid,
-      open: Number(c.o || 0),
-      high: Number(c.h || 0),
-      low: Number(c.l || 0),
-      close: Number(c.c || 0),
+      open: c.o,
+      high: c.h,
+      low: c.l,
+      close: c.c,
       volume: c.v,
       time: c.t,
     };
@@ -86,7 +86,7 @@ export class HistoricalDataLoader {
         let dayCandles: StreamCandle[] | null = null;
 
         // Пытаемся прочитать из кэша (действителен 24 часа)
-        /*try {
+        try {
           if (await fs.pathExists(cacheFile)) {
             const stat = await fs.stat(cacheFile);
             const ageHours = (Date.now() - stat.mtimeMs) / 3600_000;
@@ -99,7 +99,7 @@ export class HistoricalDataLoader {
           }
         } catch (e) {
           console.error('Cache read error', dateStr, e);
-        }*/
+        }
 
         // Если нет кэша, загружаем с API
         if (!dayCandles) {
@@ -118,22 +118,21 @@ export class HistoricalDataLoader {
 
           const response = await marketDataGrpc.getCandles(request, token);
           const candles = response.candles || [];
-
           dayCandles = candles.map(candle => ({
             instrumentUid,
-            open: quotationToNumber(candle.open),
-            high: quotationToNumber(candle.high),
-            low: quotationToNumber(candle.low),
-            close: quotationToNumber(candle.close),
+            open: candle.open,
+            high: candle.high,
+            low: candle.low,
+            close: candle.close,
             volume: String(candle.volume || '0'),
             time: timestampToISO(candle.time),
           }));
 
           // Сохраняем в кэш асинхронно
-          /*const compactData = dayCandles.map(c => this.compactCandle(c));
+          const compactData = dayCandles.map(c => this.compactCandle(c));
           this.atomicWriteJson(cacheFile, compactData)
             .then(() => console.log(`[Cache] Saved: ${cacheFile}`))
-            .catch(e => console.error('Cache write error', dateStr, e));*/
+            .catch(e => console.error('Cache write error', dateStr, e));
         }
 
         allCandles.push(...dayCandles);
