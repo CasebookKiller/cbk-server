@@ -732,9 +732,9 @@ const backtestQueue = new BacktestQueue(loader);
   res.status(202).json({ batchId, status: 'running', tasks: totalTasks });
 });*/
 
-app.post('/api/backtest/batch', async (req: Request, res: Response) => {
+app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
+  const user = (req as any).user;
   console.log('>>> BATCH HANDLER ENTERED <<<');
-  const user = { id: 1 }; // временно, пока verifyToken отключён
   const {
     instruments, dateFrom, dateTo, interval, strategy, params,
     slMin, slMax, slStep,
@@ -773,11 +773,59 @@ app.post('/api/backtest/batch', async (req: Request, res: Response) => {
     combos = [params];
   }
 
-  // Тестовые фазы – потом заменим на реальный детектор
+  // Реальный детектор фазы по дневным свечам
+  const detectDayPhase = (candles: any[], profile: any): string => {
+    if (!profile || candles.length < 5) return 'CHOP';
+    const insideVA = candles.filter((c: any) => {
+      const close = Number(c.close || 0);
+      return close >= profile.valueAreaLow && close <= profile.valueAreaHigh;
+    }).length;
+    const percentInside = (insideVA / candles.length) * 100;
+    const last = candles[candles.length - 1];
+    const high = Number(last.high || 0);
+    const low = Number(last.low || 0);
+    const avgVol = candles.reduce((s: number, c: any) => s + Number(c.volume || 0), 0) / candles.length;
+    const spike = Number(last.volume) > avgVol * 1.5;
+
+    if (percentInside > 70) return 'BALANCE';
+    if (spike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT';
+    if (high > profile.valueAreaHigh) return 'TREND_UP';
+    if (low < profile.valueAreaLow) return 'TREND_DOWN';
+    return 'CHOP';
+  };
+
   const phaseMap = new Map<string, string[]>();
+  console.log('[BATCH] Detecting phases for', instruments.length, 'instruments');
+
   for (const uid of instruments) {
-    phaseMap.set(uid, ['TEST_PHASE']);
-    console.log(`[BATCH] Set test phase for ${uid}`);
+    try {
+      console.log('[BATCH] Processing', uid);
+      const days: string[] = [];
+      const cur = new Date(dateFrom + 'T00:00:00Z');
+      const end = new Date(dateTo + 'T00:00:00Z');
+
+      while (cur <= end) {
+        const dateStr = cur.toISOString().split('T')[0];
+        const dayStart = new Date(dateStr + 'T07:00:00Z');
+        const dayEnd = new Date(dateStr + 'T16:00:00Z');
+
+        const candles = await loader.loadIntradayCandles(
+          uid, dayStart, dayEnd, process.env.TReadOnly || '', CandleInterval.CANDLE_INTERVAL_HOUR
+        );
+        const eng = new VolumeProfileEngine({ skipAutoSubscribe: true });
+        candles.forEach(c => eng.feedCandle(c));
+        const profile = eng.getProfile(uid);
+        const phase = detectDayPhase(candles, profile);
+        days.push(phase);
+        console.log(`[BATCH] ${dateStr}: ${phase}`);   // <-- лог для контроля
+        cur.setDate(cur.getDate() + 1);
+      }
+      console.log(`[BATCH] ${uid}: ${days.length} days, first 3: ${days.slice(0,3).join(',')}`);
+      phaseMap.set(uid, days);
+    } catch (e) {
+      console.error(`[BATCH] Phase detection failed for ${uid}:`, e);
+      phaseMap.set(uid, []);
+    }
   }
 
   console.log('[BATCH] Creating tasks...');
