@@ -634,7 +634,8 @@ app.post('/getbondevents', async (req: Request, res: Response) => {
 const loader = new HistoricalDataLoader();
 const backtestQueue = new BacktestQueue(loader);
 
-app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
+//app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
+app.post('/api/backtest/batch', async (req: Request, res: Response) => {
   console.log('>>> BATCH HANDLER ENTERED <<<');
   const loader = new HistoricalDataLoader();
   console.log('[BATCH] Loader created');
