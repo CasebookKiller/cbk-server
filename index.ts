@@ -1110,7 +1110,6 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
 
   const results = tasks.map((t: any) => {
     const stats = t.result?.portfolio || t.result || {};
-    // Распределение фаз
     const phases: string[] = t.market_phases || [];
     const distribution: Record<string, number> = {};
     phases.forEach((p: string) => { distribution[p] = (distribution[p] || 0) + 1; });
@@ -1124,6 +1123,7 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
       winRate: stats.winRate,
       maxDrawdown: stats.maxDrawdown,
       error: t.error,
+      marketPhases: t.market_phases,   // ← ВОТ ЭТУ СТРОКУ ДОБАВИТЬ
       phaseDistribution: distribution,
       dateFrom: commonParams.dateFrom,
       dateTo: commonParams.dateTo,
