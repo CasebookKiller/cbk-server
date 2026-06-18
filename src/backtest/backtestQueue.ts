@@ -163,9 +163,14 @@ export class BacktestQueue {
           const profile = engine.getProfile(task.instrumentUid);
           console.log(`Profile for ${task.instrumentUid}: ${profile ? 'found (poc=' + profile.poc + ')' : 'NULL'}`);
           const strategy = createStrategy(task.strategy, task.instrumentUid, profile);
-
+          console.log(`[DEBUG] Profile VAH=${profile?.valueAreaHigh}, VAL=${profile?.valueAreaLow}, POC=${profile?.poc}`);
           console.log(`Feeding ${candles.length} candles to strategy`);
           for (const candle of candles) {
+            const high = quotationToNumber(candle.high);
+            const low = quotationToNumber(candle.low);
+            if (high > profile?.valueAreaHigh || low < profile?.valueAreaLow) {
+              console.log(`[DEBUG] Breakout detected: high=${high} > VAH=${profile?.valueAreaHigh} or low=${low} < VAL=${profile?.valueAreaLow}`);
+            }
             strategy.onCandle(candle);
             const newSignals = strategy.getSignals();
             for (const signal of newSignals) {
