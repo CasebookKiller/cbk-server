@@ -56,6 +56,9 @@ export class VolumeAccumulationStrategy implements IBacktestStrategy {
     const high = quotationToNumber(candle.high);
     const low = quotationToNumber(candle.low);
     const close = quotationToNumber(candle.close);
+    if (high === 0 || low === 0 || close === 0) {
+      console.log(`[STRATEGY] ZERO candle: open=${candle.open}, high=${candle.high}, low=${candle.low}, close=${candle.close}, time=${candle.time}`);
+    }
     const time = candle.time || new Date().toISOString();
 
     // Сохраняем объём текущей свечи
