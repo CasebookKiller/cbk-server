@@ -126,7 +126,6 @@ export class BacktestQueue {
 
   private async runTask(task: Task): Promise<void> {
     task.status = 'running';
-    console.log('Task params:', JSON.stringify(task.params));
     await this.updateTaskInSupabase(task);
     try {
       const allSignals: any[] = [];
@@ -166,10 +165,6 @@ export class BacktestQueue {
           strategy.updateProfile(profile);   // обязательно для сброса hasPosition
 
           for (const candle of candles) {
-            const high = quotationToNumber(candle.high);
-            const low = quotationToNumber(candle.low);
-            const close = quotationToNumber(candle.close);
-
             strategy.onCandle(candle);
             const newSignals = strategy.getSignals();
             for (const signal of newSignals) {
@@ -178,6 +173,9 @@ export class BacktestQueue {
             }
             strategy.clearSignals();
 
+            const high = quotationToNumber(candle.high);
+            const low = quotationToNumber(candle.low);
+            const close = quotationToNumber(candle.close);
             portfolio.checkStopTake(high, low, close, candle.time || '');
           }
 
