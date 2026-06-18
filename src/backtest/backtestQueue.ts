@@ -1,4 +1,3 @@
-// @ts-nocheck
 // src/backtest/backtestQueue.ts
 
 import { HistoricalDataLoader } from './historicalDataLoader';
@@ -162,8 +161,7 @@ export class BacktestQueue {
           const profile = engine.getProfile(task.instrumentUid);
 
           const strategy = createStrategy(task.strategy, task.instrumentUid, profile);
-          strategy.updateProfile(profile);   // обязательно для сброса hasPosition
-
+          
           for (const candle of candles) {
             strategy.onCandle(candle);
             const newSignals = strategy.getSignals();
