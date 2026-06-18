@@ -120,10 +120,10 @@ export class HistoricalDataLoader {
           const candles = response.candles || [];
           dayCandles = candles.map(candle => ({
             instrumentUid,
-            open: candle.open,
-            high: candle.high,
-            low: candle.low,
-            close: candle.close,
+            open: quotationToNumber(candle.open),
+            high: quotationToNumber(candle.high),
+            low: quotationToNumber(candle.low),
+            close: quotationToNumber(candle.close),
             volume: String(candle.volume || '0'),
             time: timestampToISO(candle.time),
           }));
