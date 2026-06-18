@@ -24,12 +24,12 @@ function timestampToISO(ts: any): string {
 export class HistoricalDataLoader {
   private cacheDir = '/opt/cbk-server/cache'; // фиксированная папка
 
- private compactCandle(c: StreamCandle): any {
+  private compactCandle(c: StreamCandle): any {
     return {
-      o: Number(c.open || 0),
-      h: Number(c.high || 0),
-      l: Number(c.low || 0),
-      c: Number(c.close || 0),
+      o: c.open,   // уже число
+      h: c.high,
+      l: c.low,
+      c: c.close,
       v: c.volume,
       t: c.time,
     };
