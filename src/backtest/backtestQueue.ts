@@ -161,7 +161,7 @@ export class BacktestQueue {
           });
           candles.forEach(c => engine.feedCandle(c));
           const profile = engine.getProfile(task.instrumentUid);
-
+          console.log(`Profile for ${task.instrumentUid}: ${profile ? 'found (poc=' + profile.poc + ')' : 'NULL'}`);
           const strategy = createStrategy(task.strategy, task.instrumentUid, profile);
 
           for (const candle of candles) {
