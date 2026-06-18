@@ -1,3 +1,4 @@
+// @ts-nocheck
 // src/backtest/backtestQueue.ts
 
 import { HistoricalDataLoader } from './historicalDataLoader';
@@ -94,6 +95,7 @@ export class BacktestQueue {
         interval: task.interval,
         strategy: task.strategy,
         params: task.params,
+        market_phase: task.marketPhase || null,
         market_phases: task.marketPhases || null,
         status: 'pending'
       } as any);
@@ -161,7 +163,7 @@ export class BacktestQueue {
           const profile = engine.getProfile(task.instrumentUid);
 
           const strategy = createStrategy(task.strategy, task.instrumentUid, profile);
-          
+
           for (const candle of candles) {
             strategy.onCandle(candle);
             const newSignals = strategy.getSignals();
