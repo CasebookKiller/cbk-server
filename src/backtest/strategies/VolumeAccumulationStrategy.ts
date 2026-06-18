@@ -1,4 +1,4 @@
-// src/main/services/backtest/strategies/VolumeAccumulationStrategy.ts
+// /opt/cbk-server/src/backtest/strategies/VolumeAccumulationStrategy.ts
 
 import type { StreamCandle } from '../types';
 import type { VolumeProfileLevels } from '../volumeProfileEngine';
@@ -20,11 +20,10 @@ export class VolumeAccumulationStrategy implements IBacktestStrategy {
   private signalsToday: number = 0;
   private lastSignalTime: number = 0;
 
-
   constructor(
     instrumentUid: string,
-    dailyProfile: VolumeProfileLevels | null,   // ← добавлено | null
-    options?: { 
+    dailyProfile: VolumeProfileLevels | null,
+    options?: {
       volumeFilterEnabled?: boolean;
       volumeFilterPeriod?: number;
       maxSignalsPerDay?: number;
@@ -43,60 +42,46 @@ export class VolumeAccumulationStrategy implements IBacktestStrategy {
     this.signals = [];
     this.hasBrokenHigh = false;
     this.hasBrokenLow = false;
-    this.hasPosition = false;   // ← сброс при новом дне
+    this.hasPosition = false;
     this.volumeHistory = [];
   }
 
   private hasPosition = false;
 
   onCandle(candle: StreamCandle): void {
-    // Если уже есть открытая позиция – не генерируем новые сигналы
     if (!this.dailyProfile || this.hasPosition) return;
 
     const high = quotationToNumber(candle.high);
     const low = quotationToNumber(candle.low);
     const close = quotationToNumber(candle.close);
-    if (high === 0 || low === 0 || close === 0) {
-      console.log(`[STRATEGY] ZERO candle: open=${candle.open}, high=${candle.high}, low=${candle.low}, close=${candle.close}, time=${candle.time}`);
-    }
     const time = candle.time || new Date().toISOString();
 
-    // Сохраняем объём текущей свечи
     const volume = Number(candle.volume || '0');
     this.volumeHistory.push(volume);
     if (this.volumeHistory.length > this.volumeFilterPeriod) {
       this.volumeHistory.shift();
     }
 
-    // Проверка фильтра по объёму
     if (this.volumeFilterEnabled && this.volumeHistory.length >= this.volumeFilterPeriod) {
       const avgVolume = this.volumeHistory.reduce((a, b) => a + b, 0) / this.volumeHistory.length;
-      if (volume < avgVolume) {
-        return; // объём ниже среднего – игнорируем сигнал
-      }
+      if (volume < avgVolume) return;
     }
 
-    // Отслеживаем выход выше Value Area High
+    // отслеживаем пробои
     if (high > this.dailyProfile.valueAreaHigh) {
       this.hasBrokenHigh = true;
       this.hasBrokenLow = false;
     }
-
-    // Отслеживаем выход ниже Value Area Low
     if (low < this.dailyProfile.valueAreaLow) {
       this.hasBrokenLow = true;
       this.hasBrokenHigh = false;
     }
 
-    if (this.maxSignalsPerDay > 0 && this.signalsToday >= this.maxSignalsPerDay) {
-      return; // Достигнут дневной лимит
-    }
+    if (this.maxSignalsPerDay > 0 && this.signalsToday >= this.maxSignalsPerDay) return;
     const now = Date.now();
-    if (this.minIntervalMs > 0 && (now - this.lastSignalTime) < this.minIntervalMs) {
-      return; // Не прошёл минимальный интервал
-    }
+    if (this.minIntervalMs > 0 && (now - this.lastSignalTime) < this.minIntervalMs) return;
 
-    // Возврат внутрь VA после пробоя High → сигнал SELL
+    // возврат в VA после пробоя
     if (this.hasBrokenHigh && close < this.dailyProfile.valueAreaHigh) {
       this.signals.push({
         type: 'SELL',
@@ -106,12 +91,11 @@ export class VolumeAccumulationStrategy implements IBacktestStrategy {
         reason: `Return to VA after breaking high (VAH=${this.dailyProfile.valueAreaHigh})`,
       });
       this.hasBrokenHigh = false;
-      this.hasPosition = true;   // ← позиция открыта
+      this.hasPosition = true;
       this.signalsToday++;
       this.lastSignalTime = now;
     }
 
-    // Возврат внутрь VA после пробоя Low → сигнал BUY
     if (this.hasBrokenLow && close > this.dailyProfile.valueAreaLow) {
       this.signals.push({
         type: 'BUY',
@@ -121,24 +105,19 @@ export class VolumeAccumulationStrategy implements IBacktestStrategy {
         reason: `Return to VA after breaking low (VAL=${this.dailyProfile.valueAreaLow})`,
       });
       this.hasBrokenLow = false;
-      this.hasPosition = true;   // ← позиция открыта
+      this.hasPosition = true;
     }
   }
 
-  getSignals(): BacktestSignal[] {
-    return this.signals;
-  }
-
-  clearSignals(): void {
-    this.signals = [];
-  }
+  getSignals(): BacktestSignal[] { return this.signals; }
+  clearSignals(): void { this.signals = []; }
 
   updateProfile(profile: VolumeProfileLevels): void {
     this.dailyProfile = profile;
     this.hasPosition = false;
-    this.hasBrokenHigh = false;   // ← сброс
-    this.hasBrokenLow = false;    // ← сброс
-    this.volumeHistory = [];      // ← очистка истории объёмов
+    this.hasBrokenHigh = false;
+    this.hasBrokenLow = false;
+    this.volumeHistory = [];
     this.signalsToday = 0;
     this.lastSignalTime = 0;
   }
