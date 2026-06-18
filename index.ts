@@ -732,8 +732,10 @@ const backtestQueue = new BacktestQueue(loader);
   res.status(202).json({ batchId, status: 'running', tasks: totalTasks });
 });*/
 
-app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
-  const user = (req as any).user;
+//app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
+app.post('/api/backtest/batch', async (req: Request, res: Response) => {   // убрали verifyToken
+  const user = { id: 1 };   // тестовый пользователь
+  //const user = (req as any).user;
   console.log('>>> BATCH HANDLER ENTERED <<<');
   const {
     instruments, dateFrom, dateTo, interval, strategy, params,
