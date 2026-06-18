@@ -168,6 +168,7 @@ export class BacktestQueue {
           for (const candle of candles) {
             const high = quotationToNumber(candle.high);
             const low = quotationToNumber(candle.low);
+            const close = quotationToNumber(candle.close);
             if (high > profile?.valueAreaHigh || low < profile?.valueAreaLow) {
               console.log(`[DEBUG] Breakout detected: high=${high} > VAH=${profile?.valueAreaHigh} or low=${low} < VAL=${profile?.valueAreaLow}`);
             }
@@ -180,9 +181,6 @@ export class BacktestQueue {
             }
             strategy.clearSignals();
 
-            const high = quotationToNumber(candle.high);
-            const low = quotationToNumber(candle.low);
-            const close = quotationToNumber(candle.close);
             portfolio.checkStopTake(high, low, close, candle.time || '');
           }
 
