@@ -635,7 +635,7 @@ const loader = new HistoricalDataLoader();
 const backtestQueue = new BacktestQueue(loader);
 
 //app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
-app.post('/api/backtest/batch', async (req: Request, res: Response) => {
+/*app.post('/api/backtest/batch', async (req: Request, res: Response) => {
   console.log('>>> BATCH HANDLER ENTERED <<<');
   const loader = new HistoricalDataLoader();
   console.log('[BATCH] Loader created');
@@ -703,39 +703,82 @@ app.post('/api/backtest/batch', async (req: Request, res: Response) => {
     phaseMap.set(uid, ['TEST_PHASE']);
     console.log(`[BATCH] Set test phase for ${uid}`);
   }
-  /*const phaseMap = new Map<string, string[]>();
-  console.log('[BATCH] Detecting phases for', instruments.length, 'instruments');
-
+  
+  console.log('[BATCH] Creating tasks...');
   for (const uid of instruments) {
-    try {
-      console.log('[BATCH] Processing', uid);
-      const days: string[] = [];
-      const cur = new Date(dateFrom + 'T00:00:00Z');
-      const end = new Date(dateTo + 'T00:00:00Z');
-
-      while (cur <= end) {
-        const dateStr = cur.toISOString().split('T')[0];
-        const dayStart = new Date(dateStr + 'T07:00:00Z');
-        const dayEnd = new Date(dateStr + 'T16:00:00Z');
-
-        const candles = await loader.loadIntradayCandles(
-          uid, dayStart, dayEnd, process.env.TReadOnly || '', CandleInterval.CANDLE_INTERVAL_HOUR
-        );
-        const eng = new VolumeProfileEngine({ skipAutoSubscribe: true });
-        candles.forEach(c => eng.feedCandle(c));
-        const profile = eng.getProfile(uid);
-        const phase = detectDayPhase(candles, profile);
-        days.push(phase);
-        cur.setDate(cur.getDate() + 1);
-      }
-      console.log(`[BATCH] ${uid}: ${days.length} days, first 3: ${days.slice(0,3).join(',')}`);
-      phaseMap.set(uid, days);
-    } catch (e) {
-      console.error(`[BATCH] Phase detection failed for ${uid}:`, e);
-      phaseMap.set(uid, []);
+    const phases = phaseMap.get(uid);
+    for (const combo of combos) {
+      const taskId = `${batchId}_${uid}_${Date.now()}_${Math.random().toString(36).substr(2,4)}`;
+      backtestQueue.addTask({
+        taskId,
+        batchId,
+        userId: user.id,
+        instrumentUid: uid,
+        dateFrom,
+        dateTo,
+        interval,
+        strategy,
+        params: { ...params, ...combo },
+        marketPhases: phases,
+        status: 'pending'
+      });
     }
   }
-  */
+
+  await (SBase.from('backtest_batches') as any).update({ status: 'running' }).eq('id', batchId);
+
+  const totalTasks = instruments.length * combos.length;
+  console.log(`[BATCH] Batch ${batchId} created with ${totalTasks} tasks`);
+  res.status(202).json({ batchId, status: 'running', tasks: totalTasks });
+});*/
+
+app.post('/api/backtest/batch', async (req: Request, res: Response) => {
+  console.log('>>> BATCH HANDLER ENTERED <<<');
+  const user = { id: 1 }; // временно, пока verifyToken отключён
+  const {
+    instruments, dateFrom, dateTo, interval, strategy, params,
+    slMin, slMax, slStep,
+    tpMin, tpMax, tpStep,
+    trailMin, trailMax, trailStep,
+    lotsMin, lotsMax, lotsStep,
+    riskMin, riskMax, riskStep,
+    volPeriodMin, volPeriodMax, volPeriodStep
+  } = req.body;
+
+  if (!instruments || !Array.isArray(instruments) || instruments.length === 0) {
+    return res.status(400).json({ error: 'instruments array is required' });
+  }
+
+  const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+
+  await (SBase.from('backtest_batches') as any).insert({
+    id: batchId,
+    user_id: user.id,
+    params: { instruments, dateFrom, dateTo, interval, strategy, params },
+    status: 'pending'
+  });
+
+  const useGrid = slMin !== undefined;
+  let combos: any[];
+  if (useGrid) {
+    combos = generateParamGrid(
+      slMin !== undefined ? [slMin, slMax, slStep] : undefined,
+      tpMin !== undefined ? [tpMin, tpMax, tpStep] : undefined,
+      trailMin !== undefined ? [trailMin, trailMax, trailStep] : undefined,
+      lotsMin !== undefined ? [lotsMin, lotsMax, lotsStep] : undefined,
+      riskMin !== undefined ? [riskMin, riskMax, riskStep] : undefined,
+      volPeriodMin !== undefined ? [volPeriodMin, volPeriodMax, volPeriodStep] : undefined
+    );
+  } else {
+    combos = [params];
+  }
+
+  // Тестовые фазы – потом заменим на реальный детектор
+  const phaseMap = new Map<string, string[]>();
+  for (const uid of instruments) {
+    phaseMap.set(uid, ['TEST_PHASE']);
+    console.log(`[BATCH] Set test phase for ${uid}`);
+  }
 
   console.log('[BATCH] Creating tasks...');
   for (const uid of instruments) {
@@ -763,7 +806,7 @@ app.post('/api/backtest/batch', async (req: Request, res: Response) => {
   const totalTasks = instruments.length * combos.length;
   console.log(`[BATCH] Batch ${batchId} created with ${totalTasks} tasks`);
   res.status(202).json({ batchId, status: 'running', tasks: totalTasks });
-});
+})
 
 app.get('/api/backtest/tasks', verifyToken, (req: Request, res: Response) => {
   const user = (req as any).user;
