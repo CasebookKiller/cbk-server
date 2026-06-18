@@ -798,7 +798,6 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
   const detectDayPhase = (candles: any[], profile: any): string => {
     if (!profile || candles.length < 5) return 'CHOP';
 
-    // Рассчитываем метрики
     const totalVolume = candles.reduce((s, c) => s + Number(c.volume || 0), 0);
     const vwap = candles.reduce((s, c) => s + (Number(c.high) + Number(c.low) + Number(c.close)) / 3 * Number(c.volume), 0) / totalVolume;
     const insideVA = candles.filter(c => Number(c.close || 0) >= profile.valueAreaLow && Number(c.close || 0) <= profile.valueAreaHigh).length;
@@ -813,14 +812,12 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
     const lastClose = Number(last.close || 0);
     const vwapTrend = ((lastClose - firstClose) / firstClose) * 100;
 
-    // Логируем для отладки
     console.log(`[PHASE] ${candles[0].time} metrics: %inside=${percentInside.toFixed(1)} width=${vaWidth.toFixed(1)} trend=${vwapTrend.toFixed(2)} spike=${spike}`);
 
-    // Смягчённые условия
-    if (vaWidth < 5.0 && percentInside > 50) return 'BALANCE';        // было <3.0 и >65
-    if (vaWidth > 4.0 && spike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT'; // было >5.0
-    if (vwapTrend > 0.3 && high > profile.valueAreaHigh) return 'TREND_UP';   // было >0.5
-    if (vwapTrend < -0.3 && low < profile.valueAreaLow) return 'TREND_DOWN';  // было <-0.5
+    if (vaWidth < 5.0 && percentInside > 50) return 'BALANCE';
+    if (vaWidth > 4.0 && spike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT';
+    if (vwapTrend > 0.3 && high > profile.valueAreaHigh) return 'TREND_UP';
+    if (vwapTrend < -0.3 && low < profile.valueAreaLow) return 'TREND_DOWN';
     return 'CHOP';
   };
 
