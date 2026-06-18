@@ -164,10 +164,12 @@ export class BacktestQueue {
           console.log(`Profile for ${task.instrumentUid}: ${profile ? 'found (poc=' + profile.poc + ')' : 'NULL'}`);
           const strategy = createStrategy(task.strategy, task.instrumentUid, profile);
 
+          console.log(`Feeding ${candles.length} candles to strategy`);
           for (const candle of candles) {
             strategy.onCandle(candle);
             const newSignals = strategy.getSignals();
             for (const signal of newSignals) {
+              console.log(`Signal: ${signal.type} at ${signal.price}`);
               portfolio.processSignal(signal);
               allSignals.push(signal);
             }
