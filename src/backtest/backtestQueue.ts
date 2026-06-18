@@ -159,6 +159,9 @@ export class BacktestQueue {
             valueAreaPercent: 70,
             skipAutoSubscribe: true,
           });
+          if (Number(candle.high) === 0) {
+            console.log(`[DEBUG] ZERO candle: open=${candle.open}, high=${candle.high}, low=${candle.low}, close=${candle.close}`);
+          }
           candles.forEach(c => engine.feedCandle(c));
           const profile = engine.getProfile(task.instrumentUid);
           console.log(`Profile for ${task.instrumentUid}: ${profile ? 'found (poc=' + profile.poc + ')' : 'NULL'}`);
