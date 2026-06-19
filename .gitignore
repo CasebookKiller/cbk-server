@@ -25,3 +25,6 @@ dist-ssr
 
 keys
 .env*
+
+cache
+phase_cache

@@ -74,7 +74,9 @@ export type Database = {
           instrument_uid: string | null
           interval: string | null
           market_phase: string | null
+          market_phases: string[] | null
           params: Json | null
+          phase_status: string | null
           result: Json | null
           status: string | null
           strategy: string | null
@@ -91,7 +93,9 @@ export type Database = {
           instrument_uid?: string | null
           interval?: string | null
           market_phase?: string | null
+          market_phases?: string[] | null
           params?: Json | null
+          phase_status?: string | null
           result?: Json | null
           status?: string | null
           strategy?: string | null
@@ -108,7 +112,9 @@ export type Database = {
           instrument_uid?: string | null
           interval?: string | null
           market_phase?: string | null
+          market_phases?: string[] | null
           params?: Json | null
+          phase_status?: string | null
           result?: Json | null
           status?: string | null
           strategy?: string | null
@@ -229,6 +235,7 @@ export type Database = {
         Args: { bucket: string; object: string }
         Returns: Record<string, unknown>
       }
+      jsonb_to_text_array: { Args: { data: Json }; Returns: string[] }
     }
     Enums: {
       [_ in never]: never
