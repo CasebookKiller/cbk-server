@@ -806,6 +806,7 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
       lots: commonParams.params?.lots,
       riskPercent: commonParams.params?.riskPercent,
       marketPhases: t.market_phases,
+      phaseStatus: t.phase_status,
     };
   });
 
