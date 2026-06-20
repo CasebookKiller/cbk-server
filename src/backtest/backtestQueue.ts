@@ -95,7 +95,8 @@ export class BacktestQueue {
         strategy: task.strategy,
         params: task.params,
         market_phase: task.marketPhase || null,
-        status: 'pending'
+        status: 'pending',
+        phase_status: 'pending'
       } as any);
       if (error) console.warn('Supabase insert error:', error.message);
     } catch (e) {

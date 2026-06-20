@@ -30,6 +30,7 @@ import { createSdk } from './api/t-invest-sdk/sdk';
 
 import { ScreenerService } from './src/backtest/screenerService';
 import { instrumentsGrpc } from './src/services/tbank/InstrumentsGrpcService'; 
+import { PhaseWorker } from './src/backtest/phaseWorker';
 
 // создать клиента с заданным токеном доступа
 //const api = new TinkoffInvestApi({ token: TOKEN });
@@ -804,6 +805,7 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
       positionSizing: commonParams.params?.positionSizing,
       lots: commonParams.params?.lots,
       riskPercent: commonParams.params?.riskPercent,
+      marketPhases: t.market_phases,
     };
   });
 
@@ -874,4 +876,10 @@ app.listen(Number(PORT), '0.0.0.0', () => {
       }
     );
   }, 3000);
+
+  // Запускаем фоновый воркер для определения фаз рынка
+  const phaseWorker = new PhaseWorker();
+  setInterval(() => {
+    phaseWorker.processPendingTasks().catch((err: any) => console.error('PhaseWorker error:', err));
+  }, 30000); // проверять каждые 30 секунд
 });
