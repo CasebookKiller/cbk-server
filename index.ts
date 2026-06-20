@@ -786,6 +786,22 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
 
   const results = tasks.map((t: any) => {
     const stats = t.result?.portfolio || t.result || {};
+    // Восстанавливаем даты из dateFrom / dateTo и массива фаз
+    const phases = t.market_phases || [];
+    const details: { date: string; phase: string }[] = [];
+    if (phases.length > 0) {
+      const cur = new Date(t.date_from + 'T00:00:00Z');
+      const end = new Date(t.date_to + 'T00:00:00Z');
+      let i = 0;
+      while (cur <= end && i < phases.length) {
+        details.push({
+          date: cur.toISOString().split('T')[0],
+          phase: phases[i],
+        });
+        cur.setDate(cur.getDate() + 1);
+        i++;
+      }
+    }
     return {
       taskId: t.id,
       instrumentUid: t.instrument_uid,
@@ -807,6 +823,7 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
       riskPercent: commonParams.params?.riskPercent,
       marketPhases: t.market_phases,
       phaseStatus: t.phase_status,
+      phaseDetails: details,
     };
   });
 
