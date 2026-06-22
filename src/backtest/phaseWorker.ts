@@ -100,6 +100,17 @@ export class PhaseWorker {
       uid, dayStart, dayEnd, process.env.TReadOnly || '', intervalEnum
     );
 
+    // Гарантируем числовые поля (на случай, если загрузчик вернул объекты Quotation)
+    const numericCandles = candles.map((c: any) => ({
+      ...c,
+      open: Number(c.open?.units || c.open || 0),
+      high: Number(c.high?.units || c.high || 0),
+      low: Number(c.low?.units || c.low || 0),
+      close: Number(c.close?.units || c.close || 0),
+      volume: c.volume,
+      time: c.time,
+    }));
+
     // Строим профиль для определения Value Area
     const engine = new VolumeProfileEngine({
       profileResolution: 50,
@@ -110,7 +121,9 @@ export class PhaseWorker {
     const profile = engine.getProfile(uid);
 
     console.log(`[PhaseDebug] ${dateStr}: loaded ${candles.length} candles`);
-    const phase = detectDayPhase(candles, profile);
+    const phase = detectDayPhase(numericCandles, profile);
+
+    //const phase = detectDayPhase(candles, profile);
     console.log(`[PhaseDebug] ${dateStr}: phase = ${phase}`);
 
     try {
