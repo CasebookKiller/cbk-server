@@ -1,9 +1,15 @@
-// @ts-nocheck
 import { HistoricalDataLoader } from './historicalDataLoader';
 import { VolumeProfileEngine } from './volumeProfileEngine';
-import SBase from '../supabaseClient';
+import SBase from '../../supabaseClient';
 import fs from 'fs-extra';
 import path from 'path';
+import { CandleInterval } from '../generated/marketdataTypes';
+
+const INTERVAL_MAP: Record<string, CandleInterval> = {
+  'CANDLE_INTERVAL_1_MIN': CandleInterval.CANDLE_INTERVAL_1_MIN,
+  'CANDLE_INTERVAL_5_MIN': CandleInterval.CANDLE_INTERVAL_5_MIN,
+  'CANDLE_INTERVAL_HOUR': CandleInterval.CANDLE_INTERVAL_HOUR,
+};
 
 const PHASE_CACHE_DIR = '/opt/cbk-server/phase_cache';
 
@@ -87,8 +93,9 @@ export class PhaseWorker {
 
     const dayStart = new Date(dateStr + 'T07:00:00Z');
     const dayEnd = new Date(dateStr + 'T16:00:00Z');
+    const intervalEnum = INTERVAL_MAP[interval] || CandleInterval.CANDLE_INTERVAL_1_MIN;
     const candles = await this.loader.loadIntradayCandles(
-      uid, dayStart, dayEnd, process.env.TReadOnly || '', interval
+      uid, dayStart, dayEnd, process.env.TReadOnly || '', intervalEnum
     );
 
     // Строим профиль для определения Value Area
@@ -112,8 +119,8 @@ export class PhaseWorker {
 
   async processPendingTasks() {
     try {
-      const { data: tasks } = await SBase
-        .from('backtest_tasks')
+      const { data: tasks } = await (SBase
+        .from('backtest_tasks') as any)
         .select('task_id, instrument_uid, date_from, date_to, interval')
         .eq('phase_status', 'pending')
         .limit(1);
