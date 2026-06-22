@@ -108,6 +108,7 @@ export class PhaseWorker {
     candles.forEach(c => engine.feedCandle(c));
     const profile = engine.getProfile(uid);
 
+    console.log(`[PhaseDebug] ${dateStr} candles count: ${candles.length}`);
     const phase = detectDayPhase(candles, profile);
 
     try {
