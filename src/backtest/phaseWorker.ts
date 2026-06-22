@@ -1,61 +1,55 @@
-// /opt/cbk-server/src/backtest/phaseWorker.ts
+// @ts-nocheck
 import { HistoricalDataLoader } from './historicalDataLoader';
-import SBase from '../../supabaseClient';
+import { VolumeProfileEngine } from './volumeProfileEngine';
+import SBase from '../supabaseClient';
 import fs from 'fs-extra';
 import path from 'path';
-import { CandleInterval } from '../generated/marketdataTypes';
 
 const PHASE_CACHE_DIR = '/opt/cbk-server/phase_cache';
 
-// Простой детектор фазы (как раньше)
-function detectDayPhase(candles: any[]): string {
-  if (!candles || candles.length < 5) return 'CHOP';
+/** Детектор фазы по методу Trader Dale (использует VWAP, VA, всплески объёма) */
+function detectDayPhase(candles: any[], profile: any): string {
+  if (!profile || !profile.poc || profile.poc <= 0 || candles.length < 5) return 'CHOP';
+
   const totalVolume = candles.reduce((s, c) => s + Number(c.volume || 0), 0);
   if (totalVolume === 0) return 'CHOP';
+
+  // VWAP
   const vwap = candles.reduce((s, c) => s + (Number(c.high) + Number(c.low) + Number(c.close)) / 3 * Number(c.volume), 0) / totalVolume;
-  const prices = candles.map(c => Number(c.close));
-  const minPrice = Math.min(...prices);
-  const maxPrice = Math.max(...prices);
-  const step = (maxPrice - minPrice) / 50;
-  const volumeMap = new Map<number, number>();
-  candles.forEach(c => {
-    const close = Number(c.close);
-    const level = Math.round(close / step) * step;
-    volumeMap.set(level, (volumeMap.get(level) || 0) + Number(c.volume || 0));
-  });
-  let poc = 0, maxVol = 0;
-  volumeMap.forEach((vol, price) => { if (vol > maxVol) { maxVol = vol; poc = price; } });
-  const sortedLevels = Array.from(volumeMap.entries()).sort((a, b) => b[1] - a[1]);
-  let vaVolume = 0, vaHigh = poc, vaLow = poc;
-  const targetVol = totalVolume * 0.7;
-  for (const [price, vol] of sortedLevels) {
-    vaVolume += vol;
-    if (price > vaHigh) vaHigh = price;
-    if (price < vaLow) vaLow = price;
-    if (vaVolume >= targetVol) break;
-  }
-  const vaWidth = poc > 0 ? ((vaHigh - vaLow) / poc) * 100 : 0;
-  const insideVA = candles.filter(c => Number(c.close) >= vaLow && Number(c.close) <= vaHigh).length;
+
+  // Процент внутри VA
+  const insideVA = candles.filter(c => {
+    const close = Number(c.close || 0);
+    return close >= profile.valueAreaLow && close <= profile.valueAreaHigh;
+  }).length;
   const percentInside = (insideVA / candles.length) * 100;
+
   const last = candles[candles.length - 1];
-  const close = Number(last.close);
-  const high = Number(last.high);
-  const low = Number(last.low);
+  const high = Number(last.high || 0);
+  const low = Number(last.low || 0);
+  const close = Number(last.close || 0);
   const avgVol = totalVolume / candles.length;
   const spike = Number(last.volume) > avgVol * 1.5;
-  const vwapTrend = vwap > 0 ? ((close - vwap) / vwap) * 100 : 0;
+  const vaWidth = ((profile.valueAreaHigh - profile.valueAreaLow) / profile.poc) * 100;
+
+  // Тренд по VWAP
+  let vwapTrend = 0;
+  if (vwap > 0) {
+    vwapTrend = ((close - vwap) / vwap) * 100;
+  }
+
+  // Определение фазы
   if (vaWidth < 5.0 && percentInside > 50) return 'BALANCE';
-  if (vaWidth > 4.0 && spike && (high > vaHigh || low < vaLow)) return 'BREAKOUT';
-  if (vwapTrend > 0.5 && close > vaHigh) return 'TREND_UP';
-  if (vwapTrend < -0.5 && close < vaLow) return 'TREND_DOWN';
+  if (vaWidth > 4.0 && spike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT';
+  if (vwapTrend > 0.5 && close > profile.valueAreaHigh) return 'TREND_UP';
+  if (vwapTrend < -0.5 && close < profile.valueAreaLow) return 'TREND_DOWN';
   return 'CHOP';
 }
 
 export class PhaseWorker {
   private loader = new HistoricalDataLoader();
 
-  /** Обработать одну задачу */
-  async processTask(taskId: string, instrumentUid: string, dateFrom: string, dateTo: string, interval: CandleInterval) {
+  async processTask(taskId: string, instrumentUid: string, dateFrom: string, dateTo: string, interval: string) {
     await fs.ensureDir(PHASE_CACHE_DIR);
     const days: string[] = [];
     const cur = new Date(dateFrom + 'T00:00:00Z');
@@ -68,12 +62,8 @@ export class PhaseWorker {
       cur.setDate(cur.getDate() + 1);
     }
 
-    // Сохраняем массив фаз в задачу
     const { error } = await (SBase.from('backtest_tasks') as any)
-      .update({
-        market_phases: days,
-        phase_status: 'completed'
-      })
+      .update({ market_phases: days, phase_status: 'completed' })
       .eq('task_id', taskId);
 
     if (error) {
@@ -83,8 +73,7 @@ export class PhaseWorker {
     }
   }
 
-  /** Получить фазу для конкретного дня (из кэша или вычислить) */
-  private async getPhaseForDay(uid: string, dateStr: string, interval: CandleInterval): Promise<string> {
+  private async getPhaseForDay(uid: string, dateStr: string, interval: string): Promise<string> {
     const cacheFile = path.join(PHASE_CACHE_DIR, `${uid}_${dateStr}.json`);
     try {
       if (await fs.pathExists(cacheFile)) {
@@ -96,15 +85,23 @@ export class PhaseWorker {
       console.warn(`[PhaseWorker] Cache read error for ${dateStr}`, e);
     }
 
-    // Вычисляем фазу
     const dayStart = new Date(dateStr + 'T07:00:00Z');
     const dayEnd = new Date(dateStr + 'T16:00:00Z');
     const candles = await this.loader.loadIntradayCandles(
       uid, dayStart, dayEnd, process.env.TReadOnly || '', interval
     );
-    const phase = detectDayPhase(candles);
 
-    // Сохраняем в кэш
+    // Строим профиль для определения Value Area
+    const engine = new VolumeProfileEngine({
+      profileResolution: 50,
+      valueAreaPercent: 70,
+      skipAutoSubscribe: true,
+    });
+    candles.forEach(c => engine.feedCandle(c));
+    const profile = engine.getProfile(uid);
+
+    const phase = detectDayPhase(candles, profile);
+
     try {
       await fs.writeFile(cacheFile, JSON.stringify({ phase, date: dateStr }), 'utf-8');
     } catch (e) {
@@ -113,10 +110,9 @@ export class PhaseWorker {
     return phase;
   }
 
-  /** Периодически вызывается извне для обработки pending-задач */
   async processPendingTasks() {
     try {
-      const { data: tasks } = await (SBase as any)
+      const { data: tasks } = await SBase
         .from('backtest_tasks')
         .select('task_id, instrument_uid, date_from, date_to, interval')
         .eq('phase_status', 'pending')
