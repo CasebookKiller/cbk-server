@@ -49,6 +49,7 @@ function detectDayPhase(candles: any[], profile: any): string {
   if (vaWidth > 4.0 && spike && (high > profile.valueAreaHigh || low < profile.valueAreaLow)) return 'BREAKOUT';
   if (vwapTrend > 0.5 && close > profile.valueAreaHigh) return 'TREND_UP';
   if (vwapTrend < -0.5 && close < profile.valueAreaLow) return 'TREND_DOWN';
+  console.log(`[PhaseDebug] ${candles[0]?.time} VWAP=${vwap.toFixed(2)} %inside=${percentInside.toFixed(1)} width=${vaWidth.toFixed(1)} trend=${vwapTrend.toFixed(2)} spike=${spike}`);
   return 'CHOP';
 }
 
