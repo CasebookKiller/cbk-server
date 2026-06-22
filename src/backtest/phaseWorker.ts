@@ -43,6 +43,7 @@ function detectDayPhase(candles: any[], profile: any): string {
   if (vwap > 0) {
     vwapTrend = ((close - vwap) / vwap) * 100;
   }
+  console.log(`[PhaseDebug] ${candles[0]?.time} VWAP=${vwap.toFixed(2)} %inside=${percentInside.toFixed(1)} width=${vaWidth.toFixed(1)} trend=${vwapTrend.toFixed(2)} spike=${spike}`);
 
   // Определение фазы
   if (vaWidth < 5.0 && percentInside > 50) return 'BALANCE';
@@ -108,8 +109,9 @@ export class PhaseWorker {
     candles.forEach(c => engine.feedCandle(c));
     const profile = engine.getProfile(uid);
 
-    console.log(`[PhaseDebug] ${dateStr} candles count: ${candles.length}`);
+    console.log(`[PhaseDebug] ${dateStr}: loaded ${candles.length} candles`);
     const phase = detectDayPhase(candles, profile);
+    console.log(`[PhaseDebug] ${dateStr}: phase = ${phase}`);
 
     try {
       await fs.writeFile(cacheFile, JSON.stringify({ phase, date: dateStr }), 'utf-8');
