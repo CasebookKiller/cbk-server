@@ -844,6 +844,20 @@ app.get('/api/backtest/batches', verifyToken, async (req: Request, res: Response
   res.json(data || []);
 });
 
+app.delete('/api/backtest/batch/:batchId', verifyToken, async (req: Request, res: Response) => {
+  const batchId = req.params.batchId as string;
+  try {
+    // Удаляем все задачи batch'а
+    await (SBase.from('backtest_tasks') as any).delete().eq('batch_id', batchId);
+    // Удаляем сам batch
+    await (SBase.from('backtest_batches') as any).delete().eq('id', batchId);
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('Batch delete error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/screener', verifyToken, async (req: Request, res: Response) => {
   const token = process.env.TReadOnly || '';
   const { minVolume, maxVA, minPOC } = req.query;
