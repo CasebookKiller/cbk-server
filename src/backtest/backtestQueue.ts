@@ -19,7 +19,7 @@ interface Task {
   interval: CandleInterval;
   strategy: string;
   params: any;
-  marketPhase?: string;
+  marketPhase?: string; // ? проверить необходимость и работу этого поля
   status: 'pending' | 'running' | 'completed' | 'failed';
   result?: any;
   error?: string;

@@ -15,6 +15,7 @@ import { formDataToJson, getUserProfilePhotos } from './api/bot/methods';
 
 import { HistoricalDataLoader } from './src/backtest/historicalDataLoader';
 import { BacktestQueue } from './src/backtest/backtestQueue';
+import { DailyScheduler } from './src/services/dailyScheduler';
 
 //import { TinkoffInvestApi } from 'tinkoff-invest-api';
 //import { PortfolioRequest_CurrencyRequest, PortfolioResponse } from 'tinkoff-invest-api/cjs/generated/operations';
@@ -890,6 +891,42 @@ app.get('/health', (_req, res) => {
     uptime: process.uptime(),
     timestamp: new Date().toISOString()
   });
+});
+
+const scheduler = new DailyScheduler(backtestQueue);
+scheduler.start();
+
+// Планировщик ежедневных прогонов
+app.get('/api/scheduler', verifyToken, (req: Request, res: Response) => {
+  res.json(scheduler.getTasks());
+});
+
+app.post('/api/scheduler', verifyToken, (req: Request, res: Response) => {
+  const { time, instruments, dateFrom, dateTo, interval, strategy, params } = req.body;
+  if (!time || !instruments || !dateFrom || !dateTo || !strategy) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  const id = `sched_${Date.now()}_${Math.random().toString(36).substr(2,6)}`;
+  const task = {
+    id,
+    time,
+    instruments,
+    dateFrom,
+    dateTo,
+    interval,
+    strategy,
+    params,
+    lastRun: null,
+    nextRun: dateFrom,
+  };
+  scheduler.addTask(task);
+  res.json({ success: true, id });
+});
+
+app.delete('/api/scheduler/:id', verifyToken, (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  scheduler.removeTask(id);
+  res.json({ success: true });
 });
 
 app.listen(Number(PORT), '0.0.0.0', () => {
