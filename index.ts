@@ -762,7 +762,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
   await (SBase.from('backtest_batches') as any).update({ status: 'running' }).eq('id', batchId);
 
   const totalTasks = instruments.length * combos.length;
-  res.status(202).json({ batchId, status: 'running', tasks: totalTasks });
+  res.status(202).json({ batchId, status: 'pending', tasks: totalTasks });
 });
 
 // GET /api/backtest/batch/:batchId – статус batch'а и список задач
