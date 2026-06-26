@@ -125,6 +125,24 @@ export class BacktestQueue {
   }
 
   private async runTask(task: Task): Promise<void> {
+    // --- переводим batch в running, если он ещё pending ---
+    if (task.batchId) {
+      try {
+        const { data: batch } = await (SBase.from('backtest_batches') as any)
+          .select('status')
+          .eq('id', task.batchId)
+          .single();
+        if (batch && batch.status === 'pending') {
+          await (SBase.from('backtest_batches') as any)
+            .update({ status: 'running' })
+            .eq('id', task.batchId);
+        }
+      } catch (e) {
+        console.warn('Batch status update (pending→running) failed:', e);
+      }
+    }
+    // ----------------------------------------------------
+    // ... остальной код runTask без изменений ...
     task.status = 'running';
     await this.updateTaskInSupabase(task);
     try {
