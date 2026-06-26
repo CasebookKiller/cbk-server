@@ -705,7 +705,7 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
     lotsMin, lotsMax, lotsStep,
     riskMin, riskMax, riskStep,
     volPeriodMin, volPeriodMax, volPeriodStep,
-    useServerGrid // новый флаг
+    useServerGrid
   } = req.body;
 
   if (!instruments || !Array.isArray(instruments) || instruments.length === 0) {
@@ -721,16 +721,20 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
     status: 'pending'
   });
 
-  // Генерируем комбинации, если useServerGrid = true
+  // Проверяем, нужно ли генерировать сетку параметров:
+  // если передан флаг useServerGrid или заданы любые диапазоны (Grid search на клиенте)
+  const hasGridParams = slMin != null || tpMin != null || trailMin != null || lotsMin != null || riskMin != null || volPeriodMin != null;
+  const shouldGenerateGrid = useServerGrid || hasGridParams;
+
   let combos: any[] = [params];
-  if (useServerGrid) {
+  if (shouldGenerateGrid) {
     const grid = generateParamGrid(
-      slMin !== undefined ? [slMin, slMax, slStep] : undefined,
-      tpMin !== undefined ? [tpMin, tpMax, tpStep] : undefined,
-      trailMin !== undefined ? [trailMin, trailMax, trailStep] : undefined,
-      lotsMin !== undefined ? [lotsMin, lotsMax, lotsStep] : undefined,
-      riskMin !== undefined ? [riskMin, riskMax, riskStep] : undefined,
-      volPeriodMin !== undefined ? [volPeriodMin, volPeriodMax, volPeriodStep] : undefined
+      slMin != null ? [slMin, slMax, slStep] : undefined,
+      tpMin != null ? [tpMin, tpMax, tpStep] : undefined,
+      trailMin != null ? [trailMin, trailMax, trailStep] : undefined,
+      lotsMin != null ? [lotsMin, lotsMax, lotsStep] : undefined,
+      riskMin != null ? [riskMin, riskMax, riskStep] : undefined,
+      volPeriodMin != null ? [volPeriodMin, volPeriodMax, volPeriodStep] : undefined
     );
     combos = grid.length > 0 ? grid : [params];
   }
