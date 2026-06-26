@@ -697,15 +697,15 @@ app.get('/api/backtest/results/:taskId', verifyToken, (req: Request, res: Respon
 // POST /api/backtest/batch – создаёт batch-прогон
 app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response) => {
   const user = (req as any).user;
-  const { 
+  const {
     instruments, dateFrom, dateTo, interval, strategy, params,
-    // поля сетки
     slMin, slMax, slStep,
     tpMin, tpMax, tpStep,
     trailMin, trailMax, trailStep,
     lotsMin, lotsMax, lotsStep,
     riskMin, riskMax, riskStep,
-    volPeriodMin, volPeriodMax, volPeriodStep
+    volPeriodMin, volPeriodMax, volPeriodStep,
+    useServerGrid // новый флаг
   } = req.body;
 
   if (!instruments || !Array.isArray(instruments) || instruments.length === 0) {
@@ -714,7 +714,6 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
 
   const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
 
-  // Сохраняем batch в Supabase
   await (SBase.from('backtest_batches') as any).insert({
     id: batchId,
     user_id: user.id,
@@ -722,12 +721,10 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
     status: 'pending'
   });
 
-  // Создаём задачи для каждого инструмента
-  // Если задана сетка – генерируем комбинации, иначе используем одну комбинацию из params
-  const useGrid = slMin !== undefined; // или явный флаг, можно добавить от клиента
-  let combos: any[];
-  if (useGrid) {
-    combos = generateParamGrid(
+  // Генерируем комбинации, если useServerGrid = true
+  let combos: any[] = [params];
+  if (useServerGrid) {
+    const grid = generateParamGrid(
       slMin !== undefined ? [slMin, slMax, slStep] : undefined,
       tpMin !== undefined ? [tpMin, tpMax, tpStep] : undefined,
       trailMin !== undefined ? [trailMin, trailMax, trailStep] : undefined,
@@ -735,10 +732,10 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
       riskMin !== undefined ? [riskMin, riskMax, riskStep] : undefined,
       volPeriodMin !== undefined ? [volPeriodMin, volPeriodMax, volPeriodStep] : undefined
     );
-  } else {
-    combos = [params]; // исходные параметры, уже содержат volumeFilterEnabled/Period
+    combos = grid.length > 0 ? grid : [params];
   }
 
+  // Создаём задачи для каждого инструмента и каждой комбинации
   for (const uid of instruments) {
     for (const combo of combos) {
       const taskId = `${batchId}_${uid}_${Date.now()}_${Math.random().toString(36).substr(2,4)}`;
@@ -752,15 +749,16 @@ app.post('/api/backtest/batch', verifyToken, async (req: Request, res: Response)
         interval,
         strategy,
         params: { ...params, ...combo },
+        marketPhase: '',
         status: 'pending'
       });
     }
   }
 
-  // Обновим статус batch'а на running
-  await (SBase.from('backtest_batches') as any).update({ status: 'running' }).eq('task_id', batchId);
+  await (SBase.from('backtest_batches') as any).update({ status: 'running' }).eq('id', batchId);
 
-  res.status(202).json({ batchId, status: 'running', tasks: instruments.length });
+  const totalTasks = instruments.length * combos.length;
+  res.status(202).json({ batchId, status: 'running', tasks: totalTasks });
 });
 
 // GET /api/backtest/batch/:batchId – статус batch'а и список задач
