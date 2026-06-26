@@ -785,7 +785,18 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
 
   const results = tasks.map((t: any) => {
     const stats = t.result?.portfolio || t.result || {};
-    // Восстанавливаем даты из dateFrom / dateTo и массива фаз
+    const taskParams = t.params || {}; // ← добавить
+    const mergedParams = {            // ← добавить
+      stopLossPercent: taskParams.stopLossPercent ?? commonParams.params?.stopLossPercent,
+      takeProfitPercent: taskParams.takeProfitPercent ?? commonParams.params?.takeProfitPercent,
+      trailingDistancePercent: taskParams.trailingDistancePercent ?? commonParams.params?.trailingDistancePercent,
+      lots: taskParams.lots ?? commonParams.params?.lots,
+      riskPercent: taskParams.riskPercent ?? commonParams.params?.riskPercent,
+      positionSizing: taskParams.positionSizing ?? commonParams.params?.positionSizing,
+      volumeFilterEnabled: taskParams.volumeFilterEnabled ?? commonParams.params?.volumeFilterEnabled,
+      volumeFilterPeriod: taskParams.volumeFilterPeriod ?? commonParams.params?.volumeFilterPeriod,
+    };
+
     const phases = t.market_phases || [];
     const details: { date: string; phase: string }[] = [];
     if (phases.length > 0) {
@@ -811,15 +822,17 @@ app.get('/api/backtest/batch/:batchId/results', verifyToken, async (req: Request
       maxDrawdown: stats.maxDrawdown,
       error: t.error,
       // параметры прогона
-      dateFrom: commonParams.dateFrom,
-      dateTo: commonParams.dateTo,
+      dateFrom: t.date_from || commonParams.dateFrom,
+      dateTo: t.date_to || commonParams.dateTo,
       strategy: commonParams.strategy,
-      stopLoss: commonParams.params?.stopLossPercent,
-      takeProfit: commonParams.params?.takeProfitPercent,
-      trailing: commonParams.params?.trailingDistancePercent,
-      positionSizing: commonParams.params?.positionSizing,
-      lots: commonParams.params?.lots,
-      riskPercent: commonParams.params?.riskPercent,
+      stopLoss: mergedParams.stopLossPercent,
+      takeProfit: mergedParams.takeProfitPercent,
+      trailing: mergedParams.trailingDistancePercent,
+      positionSizing: mergedParams.positionSizing,
+      lots: mergedParams.lots,
+      riskPercent: mergedParams.riskPercent,
+      volumeFilterEnabled: mergedParams.volumeFilterEnabled,
+      volumeFilterPeriod: mergedParams.volumeFilterPeriod,
       marketPhases: t.market_phases,
       phaseStatus: t.phase_status,
       phaseDetails: details,
