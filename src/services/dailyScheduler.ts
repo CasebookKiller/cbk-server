@@ -101,7 +101,7 @@ export class DailyScheduler {
       volumeFilterConfig: task.volumeFilterConfig || null,
       enabled: true,
       lastRun: null,
-      nextRun: nextRun.toISOString(),
+      nextRun: nextRun,
     };
 
     // Сохраняем в БД
@@ -126,17 +126,13 @@ export class DailyScheduler {
         created_at: now.toISOString(),
       });
       if (error) {
-        //console.error('[DailyScheduler] Failed to insert task:', error);
-        //throw new Error('Failed to save task');
-        if (error) {
-          console.error('[DailyScheduler] Insert error details:',
-            'code:', (error as any).code,
-            'message:', error.message,
-            'details:', (error as any).details,
-            'hint:', (error as any).hint
-          );
-          throw new Error('Failed to save task');
-        }
+        console.error('[DailyScheduler] Insert error details:',
+          'code:', (error as any).code,
+          'message:', error.message,
+          'details:', (error as any).details,
+          'hint:', (error as any).hint
+        );
+        throw new Error('Failed to save task');
       }
     } catch (err) {
       console.error('[DailyScheduler] Error saving task to DB:', err);
@@ -196,19 +192,21 @@ export class DailyScheduler {
           // Рассчитываем следующий запуск: та же дата + время? Если период dateFrom..dateTo, логично сдвигать дату
           // Пока для простоты: nextRun = завтра в то же время
           // Новый:
+          // в tick, после расчёта следующего запуска
           const lastRunMsk = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Moscow' }));
           lastRunMsk.setDate(lastRunMsk.getDate() + 1); // следующие сутки по Москве
           const [h, m] = task.time.split(':').map(Number);
           lastRunMsk.setHours(h, m, 0, 0);
-          const nextUtc = lastRunMsk.toISOString();
-          // Проверка выхода за dateTo в UTC (dateTo интерпретируется как московская дата)
+          const nextUtc = lastRunMsk.toISOString();   // ← получаем строку ISO
+          // Проверка dateTo
           const dateToMsk = new Date(task.dateTo + 'T23:59:59+03:00');
           if (task.dateTo && new Date(nextUtc) > dateToMsk) {
             task.enabled = false;
             task.nextRun = null;
           } else {
-            task.nextRun = nextUtc;
+            task.nextRun = nextUtc;   // ← присваиваем строку, НЕ вызываем .toISOString()!
           }
+          await this.updateTaskInDB(task);
         } catch (err) {
           console.error(`[DailyScheduler] Failed to run task ${task.id}:`, err);
         }
