@@ -911,36 +911,50 @@ app.get('/health', (_req, res) => {
 const scheduler = new DailyScheduler(backtestQueue);
 scheduler.start();
 
-// Планировщик ежедневных прогонов
-app.get('/api/scheduler', verifyToken, (req: Request, res: Response) => {
-  res.json(scheduler.getTasks());
+// Планировщик ежедневных прогонов (с персистентностью в Supabase)
+app.get('/api/scheduler', verifyToken, async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const allTasks = scheduler.getTasks();
+  // Фильтруем по userId, если он есть в задании
+  const userTasks = allTasks.filter(t => !t.userId || t.userId === user.id);
+  res.json(userTasks);
 });
 
-app.post('/api/scheduler', verifyToken, (req: Request, res: Response) => {
-  const { time, instruments, dateFrom, dateTo, interval, strategy, params } = req.body;
+app.post('/api/scheduler', verifyToken, async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const { 
+    time, instruments, dateFrom, dateTo, interval, strategy,
+    params, useGrid, gridConfig, useVolumeFilter, volumeFilterConfig 
+  } = req.body;
+
   if (!time || !instruments || !dateFrom || !dateTo || !strategy) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
-  const id = `sched_${Date.now()}_${Math.random().toString(36).substr(2,6)}`;
-  const task = {
-    id,
-    time,
-    instruments,
-    dateFrom,
-    dateTo,
-    interval,
-    strategy,
-    params,
-    lastRun: null,
-    nextRun: dateFrom,
-  };
-  scheduler.addTask(task);
-  res.json({ success: true, id });
+
+  try {
+    const task = await scheduler.addTask({
+      userId: user.id,
+      time,
+      instruments,
+      dateFrom,
+      dateTo,
+      interval: interval || 'CANDLE_INTERVAL_1_MIN',
+      strategy,
+      params: params || {},
+      useGrid: useGrid || false,
+      gridConfig: gridConfig || null,
+      useVolumeFilter: useVolumeFilter || false,
+      volumeFilterConfig: volumeFilterConfig || null,
+    });
+    res.json({ success: true, id: task.id });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.delete('/api/scheduler/:id', verifyToken, (req: Request, res: Response) => {
+app.delete('/api/scheduler/:id', verifyToken, async (req: Request, res: Response) => {
   const id = req.params.id as string;
-  scheduler.removeTask(id);
+  await scheduler.removeTask(id);
   res.json({ success: true });
 });
 
