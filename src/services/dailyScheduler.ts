@@ -124,8 +124,17 @@ export class DailyScheduler {
         created_at: now.toISOString(),
       });
       if (error) {
-        console.error('[DailyScheduler] Failed to insert task:', error);
-        throw new Error('Failed to save task');
+        //console.error('[DailyScheduler] Failed to insert task:', error);
+        //throw new Error('Failed to save task');
+        if (error) {
+          console.error('[DailyScheduler] Insert error details:',
+            'code:', (error as any).code,
+            'message:', error.message,
+            'details:', (error as any).details,
+            'hint:', (error as any).hint
+          );
+          throw new Error('Failed to save task');
+        }
       }
     } catch (err) {
       console.error('[DailyScheduler] Error saving task to DB:', err);
