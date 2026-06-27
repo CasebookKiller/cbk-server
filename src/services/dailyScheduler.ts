@@ -21,6 +21,7 @@ interface SchedulerTask {
   enabled: boolean;
   lastRun: string | null;
   nextRun: string | null;
+  lastBatchId?: string | null;
 }
 
 export class DailyScheduler {
@@ -65,6 +66,7 @@ export class DailyScheduler {
         enabled: t.enabled,
         lastRun: t.last_run,
         nextRun: t.next_run,
+        lastBatchId: t.last_batch_id || null,
       }));
     } catch (err) {
       console.error('[DailyScheduler] Error loading tasks:', err);
@@ -102,6 +104,7 @@ export class DailyScheduler {
       enabled: true,
       lastRun: null,
       nextRun: nextRun,
+      lastBatchId: null,
     };
 
     // Сохраняем в БД
@@ -224,6 +227,15 @@ export class DailyScheduler {
     }
 
     const batchId = `sched_batch_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+    task.lastBatchId = batchId;
+    // Обновим в БД сразу (можно вместе с другими полями позже, но лучше сразу)
+    try {
+      await SBase.from('scheduler_tasks')
+        .update({ last_batch_id: batchId })
+        .eq('id', task.id);
+    } catch (e) {
+      console.warn('[DailyScheduler] Failed to update last_batch_id', e);
+    }
 
     // Создаём запись batch в БД
     await SBase.from('backtest_batches').insert({

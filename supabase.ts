@@ -202,6 +202,7 @@ export type Database = {
           id: string
           instruments: string[]
           interval: string | null
+          last_batch_id: string | null
           last_run: string | null
           next_run: string | null
           params: Json
@@ -221,6 +222,7 @@ export type Database = {
           id: string
           instruments: string[]
           interval?: string | null
+          last_batch_id?: string | null
           last_run?: string | null
           next_run?: string | null
           params?: Json
@@ -240,6 +242,7 @@ export type Database = {
           id?: string
           instruments?: string[]
           interval?: string | null
+          last_batch_id?: string | null
           last_run?: string | null
           next_run?: string | null
           params?: Json
