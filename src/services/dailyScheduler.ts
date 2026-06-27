@@ -76,12 +76,14 @@ export class DailyScheduler {
     const now = new Date();
     // Вычисляем ближайшее время запуска: dateFrom + time
     const [hours, minutes] = task.time.split(':').map(Number);
-    const nextRun = new Date(task.dateFrom + 'T00:00:00Z');
-    nextRun.setUTCHours(hours, minutes, 0, 0);
-    // Если это время уже прошло, ставим на следующий день
-    if (nextRun <= now) {
-      nextRun.setDate(nextRun.getDate() + 1);
+    // Создаём дату в московском часовом поясе (UTC+3)
+    const mskDate = new Date(task.dateFrom + 'T' + task.time + ':00+03:00');
+    // Если заданное время уже прошло (сравниваем в UTC), переносим на сутки вперёд
+    let nextRunUtc = mskDate;
+    if (nextRunUtc <= now) {
+      nextRunUtc = new Date(nextRunUtc.getTime() + 24 * 60 * 60 * 1000);
     }
+    const nextRun = nextRunUtc.toISOString(); // UTC
 
     const newTask: SchedulerTask = {
       id,
@@ -193,18 +195,19 @@ export class DailyScheduler {
           task.lastRun = now.toISOString();
           // Рассчитываем следующий запуск: та же дата + время? Если период dateFrom..dateTo, логично сдвигать дату
           // Пока для простоты: nextRun = завтра в то же время
-          const next = new Date(now);
-          next.setDate(next.getDate() + 1);
+          // Новый:
+          const lastRunMsk = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Moscow' }));
+          lastRunMsk.setDate(lastRunMsk.getDate() + 1); // следующие сутки по Москве
           const [h, m] = task.time.split(':').map(Number);
-          next.setUTCHours(h, m, 0, 0);
-          // Если вышли за dateTo, отключаем задание
-          if (task.dateTo && next > new Date(task.dateTo + 'T23:59:59Z')) {
+          lastRunMsk.setHours(h, m, 0, 0);
+          const nextUtc = lastRunMsk.toISOString();
+          // Проверка выхода за dateTo в UTC (dateTo интерпретируется как московская дата)
+          const dateToMsk = new Date(task.dateTo + 'T23:59:59+03:00');
+          if (task.dateTo && new Date(nextUtc) > dateToMsk) {
             task.enabled = false;
             task.nextRun = null;
-            await this.updateTaskInDB(task);
           } else {
-            task.nextRun = next.toISOString();
-            await this.updateTaskInDB(task);
+            task.nextRun = nextUtc;
           }
         } catch (err) {
           console.error(`[DailyScheduler] Failed to run task ${task.id}:`, err);
