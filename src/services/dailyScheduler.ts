@@ -49,6 +49,8 @@ export class DailyScheduler {
         console.error('[DailyScheduler] Failed to load tasks from DB:', error);
         return;
       }
+      console.log('[DailyScheduler] Raw DB data:', JSON.stringify(data));
+      console.log('[DailyScheduler] Data length:', data?.length);
       this.tasks = (data || []).map((t: any) => ({
         id: t.id,
         userId: t.user_id,
