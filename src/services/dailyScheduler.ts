@@ -79,13 +79,12 @@ export class DailyScheduler {
     // Вычисляем ближайшее время запуска: dateFrom + time
     const [hours, minutes] = task.time.split(':').map(Number);
     // Создаём дату в московском часовом поясе (UTC+3)
-    const mskDate = new Date(task.dateFrom + 'T' + task.time + ':00+03:00');
-    // Если заданное время уже прошло (сравниваем в UTC), переносим на сутки вперёд
-    let nextRunUtc = mskDate;
-    if (nextRunUtc <= now) {
-      nextRunUtc = new Date(nextRunUtc.getTime() + 24 * 60 * 60 * 1000);
+    const nowMsk = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Moscow' }));
+    nowMsk.setHours(hours, minutes, 0, 0);
+    if (nowMsk <= new Date()) {
+      nowMsk.setDate(nowMsk.getDate() + 1);
     }
-    const nextRun = nextRunUtc.toISOString(); // UTC
+    const nextRun = nowMsk.toISOString(); // UTC
 
     const newTask: SchedulerTask = {
       id,
